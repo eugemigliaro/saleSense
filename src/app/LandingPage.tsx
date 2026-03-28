@@ -4,8 +4,6 @@ import Link from "next/link";
 import { ArrowRight, ChevronRight } from "lucide-react";
 import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
-
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   currency: "USD",
   maximumFractionDigits: 0,
@@ -64,14 +62,13 @@ export function LandingPage() {
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/35 to-transparent" />
       </div>
 
-      <header className="relative z-10 px-4 pb-1 pt-1 sm:px-6 lg:px-10">
-        <Button
-          asChild
-          className="mt-1 rounded-xl border border-white/70 bg-white/85 px-5 text-sm font-semibold text-foreground shadow-sm backdrop-blur transition-colors hover:bg-white lg:translate-y-16"
-          variant="ghost"
+      <header className="relative z-20 px-4 pb-1 pt-1 sm:px-6 lg:px-10">
+        <Link
+          className="relative z-20 inline-flex mt-1 items-center justify-center rounded-xl border border-white/70 bg-white/85 px-5 py-2 text-sm font-semibold text-foreground shadow-sm backdrop-blur transition-colors hover:bg-white lg:translate-y-16"
+          href="/seller/sign-in"
         >
-          <Link href="/seller/sign-in">Log In</Link>
-        </Button>
+          Log In
+        </Link>
       </header>
 
       <section className="relative z-10 px-4 pb-14 pt-2 sm:px-6 lg:px-10 lg:pb-20">
