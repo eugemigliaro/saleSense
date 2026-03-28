@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Bot,
   ExternalLink,
-  MessageCircle,
   Search,
   Send,
   User,
@@ -24,7 +23,6 @@ interface KioskChatViewProps {
   isTyping: boolean;
   messages: ChatMessage[];
   onCloseGrounding: () => void;
-  productName: string;
   onDraftChange: (value: string) => void;
   onEndSession: () => void;
   onOpenGroundingForMessage: (messageId: string) => void;
@@ -44,7 +42,6 @@ export function KioskChatView({
   isTyping,
   messages,
   onCloseGrounding,
-  productName,
   onDraftChange,
   onEndSession,
   onOpenGroundingForMessage,
@@ -102,22 +99,7 @@ export function KioskChatView({
 
       <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-4 sm:px-6 lg:px-10">
         <div className="flex h-[min(92vh,920px)] w-full max-w-6xl flex-col overflow-hidden rounded-[2rem] border border-white/12 bg-slate-950/55 shadow-[0_40px_120px_-42px_rgba(2,6,23,0.95)] backdrop-blur-xl">
-          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 sm:px-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 shadow-[0_20px_40px_-18px_rgba(59,130,246,0.95)]">
-                <MessageCircle className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h2 className="kiosk-text font-display text-xl font-semibold sm:text-2xl">
-                  Chat with SaleSense
-                </h2>
-                <div className="mt-1 flex items-center gap-2 text-sm text-white/60">
-                  <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-400" />
-                  <span>{productName}</span>
-                  <span className="text-white/35">Online</span>
-                </div>
-              </div>
-            </div>
+          <div className="flex items-center justify-end border-b border-white/10 px-5 py-4 sm:px-6">
             <button
               onClick={onEndSession}
               className="rounded-xl border border-white/10 bg-white/6 p-3 text-white/70 transition-all hover:bg-white/10 hover:text-white"

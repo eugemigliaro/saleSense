@@ -48,7 +48,6 @@ export default function KioskExperience({
           isTyping={experience.isTyping}
           messages={experience.messages}
           onCloseGrounding={experience.closeGrounding}
-          productName={productName}
           onDraftChange={experience.setDraft}
           onEndSession={experience.transitionToLeadCapture}
           onOpenGroundingForMessage={experience.openGroundingForMessage}
