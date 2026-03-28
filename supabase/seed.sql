@@ -1,0 +1,1 @@
+-- Seed data will be added once the initial schema exists.

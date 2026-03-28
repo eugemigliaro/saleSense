@@ -1,5 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+import { requireSellerContext } from "@/lib/auth";
+
 const sellerTickets = [
   "Protected seller shell and auth flow",
   "Product list, create, and edit screens",
@@ -7,9 +9,11 @@ const sellerTickets = [
   "Lead review table with AI summary fields",
 ];
 
-export default function SellerPage() {
+export default async function SellerPage() {
+  const sellerContext = await requireSellerContext();
+
   return (
-    <main className="min-h-screen bg-muted/30 px-6 py-10 sm:px-10">
+    <main className="px-6 py-10 sm:px-10">
       <div className="mx-auto flex max-w-5xl flex-col gap-10">
         <header className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-muted-foreground">
@@ -23,6 +27,22 @@ export default function SellerPage() {
             and lead review. Build here, not in the customer kiosk routes.
           </p>
         </header>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Authenticated seller context</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              <span className="font-medium text-foreground">User:</span>{" "}
+              {sellerContext.email ?? sellerContext.userId}
+            </p>
+            <p>
+              <span className="font-medium text-foreground">Store scope:</span>{" "}
+              {sellerContext.storeId}
+            </p>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
