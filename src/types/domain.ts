@@ -38,14 +38,14 @@ export interface DeviceSession {
 }
 
 export interface Lead {
-  aiSummary: string;
+  aiSummary: string | null;
   createdAt: string;
   customerEmail: string;
   customerName: string;
-  customerPhone?: string | null;
+  customerPhone: string | null;
   id: string;
-  inferredInterest: string;
-  nextBestProduct?: string | null;
+  inferredInterest: string | null;
+  nextBestProduct: string | null;
   productId: string;
   storeId: string;
 }
