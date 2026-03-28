@@ -34,8 +34,13 @@ export async function signInSellerAction(formData: FormData) {
   });
 
   if (error) {
+    const message =
+      error.status === 400
+        ? "Invalid email or password."
+        : "Seller sign-in is unavailable right now.";
+
     redirect(
-      `/seller/sign-in?error=${encodeURIComponent("Invalid email or password.")}&next=${encodeURIComponent(nextPath)}`,
+      `/seller/sign-in?error=${encodeURIComponent(message)}&next=${encodeURIComponent(nextPath)}`,
     );
   }
 

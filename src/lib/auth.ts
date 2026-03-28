@@ -25,9 +25,15 @@ function getStoreIdFromUser(user: User) {
 
 export async function getSellerContext(): Promise<SellerContext | null> {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user: User | null = null;
+
+  try {
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch (error) {
+    console.warn("Failed to load seller session. Treating request as signed out.", error);
+    return null;
+  }
 
   if (!user) {
     return null;

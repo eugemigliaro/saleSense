@@ -10,6 +10,19 @@ interface RefreshSessionResult {
   user: User | null;
 }
 
+function clearSupabaseCookies(
+  request: NextRequest,
+  response: NextResponse,
+) {
+  request.cookies
+    .getAll()
+    .filter((cookie) => cookie.name.startsWith("sb-"))
+    .forEach((cookie) => {
+      request.cookies.delete(cookie.name);
+      response.cookies.delete(cookie.name);
+    });
+}
+
 export async function refreshSupabaseSession(
   request: NextRequest,
 ): Promise<RefreshSessionResult> {
@@ -44,14 +57,24 @@ export async function refreshSupabaseSession(
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  return {
-    response: supabaseResponse,
-    user,
-  };
+    return {
+      response: supabaseResponse,
+      user,
+    };
+  } catch (error) {
+    console.warn("Supabase session refresh failed. Clearing auth cookies.", error);
+    clearSupabaseCookies(request, supabaseResponse);
+
+    return {
+      response: supabaseResponse,
+      user: null,
+    };
+  }
 }
 
 export function redirectWithSupabaseCookies(

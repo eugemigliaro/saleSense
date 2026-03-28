@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { ArrowRight, Mail, Phone, Sparkles, UserCircle2, X } from "lucide-react";
+import type { ApiErrorResponse, ApiSuccessResponse } from "@/types/api";
+import type { ChatSession } from "@/types/domain";
 
 type KioskState = "idle" | "chat" | "lead" | "thanks";
 type MessageRole = "assistant" | "user";
@@ -16,12 +18,79 @@ interface ChatMessage {
 interface KioskExperienceProps {
   brandName: string;
   category: string;
+  comparisonSnippet: string;
+  deviceSessionId: string | null;
+  detailsMarkdown: string;
+  idleMediaUrl: string | null;
   productName: string;
   sourceLabel: string;
 }
 
-function buildGreeting(productName: string, brandName: string, category: string) {
-  return `Hi, I'm your SaleSense guide for the ${brandName} ${productName}. I can walk you through fit, features, and comparisons in this ${category.toLowerCase()} demo. What matters most to you today?`;
+interface ChatSessionCreatePayload {
+  initialMessage: ChatMessage;
+  session: ChatSession;
+}
+
+interface ChatSessionMessagePayload {
+  assistantMessage: ChatMessage;
+  session: ChatSession;
+}
+
+function buildGreeting() {
+  return "What can I help you with.";
+}
+
+function extractMarkdownBulletLines(detailsMarkdown: string) {
+  return detailsMarkdown
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => /^[-*]\s+/.test(line))
+    .map((line) => line.replace(/^[-*]\s+/, "").replace(/\*\*/g, ""))
+    .filter(Boolean);
+}
+
+function extractMarkdownParagraphs(detailsMarkdown: string) {
+  return detailsMarkdown
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#") && !/^[-*]\s+/.test(line))
+    .map((line) => line.replace(/\*\*/g, ""))
+    .filter(Boolean);
+}
+
+function buildMarketingHighlights(detailsMarkdown: string, comparisonSnippet: string) {
+  const bulletLines = extractMarkdownBulletLines(detailsMarkdown);
+  const paragraphLines = extractMarkdownParagraphs(detailsMarkdown);
+  const snippetParts = comparisonSnippet
+    .split(/[.;]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  const highlights = [...bulletLines, ...snippetParts].slice(0, 4);
+
+  if (highlights.length > 0) {
+    return highlights;
+  }
+
+  return paragraphLines.slice(0, 4);
+}
+
+function buildMarketingSummary(detailsMarkdown: string, comparisonSnippet: string) {
+  const paragraphLines = extractMarkdownParagraphs(detailsMarkdown);
+
+  if (paragraphLines.length > 0) {
+    return paragraphLines[0];
+  }
+
+  return comparisonSnippet;
+}
+
+function isImageUrl(url: string | null) {
+  if (!url) {
+    return false;
+  }
+
+  return /\.(avif|gif|jpe?g|png|webp|svg)$/i.test(url);
 }
 
 function buildMockReply(
@@ -48,9 +117,18 @@ function createMessage(role: MessageRole, content: string): ChatMessage {
   };
 }
 
+async function readJsonResponse<T>(response: Response): Promise<T> {
+  const payload = (await response.json()) as T;
+  return payload;
+}
+
 export default function KioskExperience({
   brandName,
   category,
+  comparisonSnippet,
+  deviceSessionId,
+  detailsMarkdown,
+  idleMediaUrl,
   productName,
   sourceLabel,
 }: KioskExperienceProps) {
@@ -58,11 +136,23 @@ export default function KioskExperience({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [chatSessionId, setChatSessionId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const chatSessionRequestRef = useRef<Promise<string | null> | null>(null);
   const messagesRef = useRef<HTMLDivElement | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
+  const marketingHighlights = buildMarketingHighlights(
+    detailsMarkdown,
+    comparisonSnippet,
+  );
+  const marketingSummary = buildMarketingSummary(
+    detailsMarkdown,
+    comparisonSnippet,
+  );
+  const showImagePreview = isImageUrl(idleMediaUrl);
 
   function resetExperience() {
     if (typingTimeoutRef.current !== null) {
@@ -73,6 +163,9 @@ export default function KioskExperience({
     setCustomerEmail("");
     setCustomerName("");
     setCustomerPhone("");
+    setChatError(null);
+    setChatSessionId(null);
+    chatSessionRequestRef.current = null;
     setDraft("");
     setIsTyping(false);
     setMessages([]);
@@ -109,11 +202,98 @@ export default function KioskExperience({
   }, []);
 
   function startExperience() {
-    setMessages([createMessage("assistant", buildGreeting(productName, brandName, category))]);
+    setChatError(null);
+    setMessages([createMessage("assistant", buildGreeting())]);
     setState("chat");
+
+    if (deviceSessionId) {
+      void ensureServerChatSession().catch((error) => {
+        setChatError(
+          error instanceof Error
+            ? error.message
+            : "Live chat is unavailable right now.",
+        );
+      });
+    }
   }
 
-  function sendMessage(content: string) {
+  async function createServerChatSession() {
+    if (!deviceSessionId) {
+      return null;
+    }
+
+    const response = await fetch("/api/v1/chat-sessions", {
+      body: JSON.stringify({
+        deviceSessionId,
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      const errorPayload = await readJsonResponse<ApiErrorResponse>(response);
+      throw new Error(
+        errorPayload.error.message || "Failed to create a live chat session.",
+      );
+    }
+
+    const payload =
+      await readJsonResponse<ApiSuccessResponse<ChatSessionCreatePayload>>(response);
+
+    return payload.data.session.id;
+  }
+
+  async function ensureServerChatSession() {
+    if (!deviceSessionId) {
+      return null;
+    }
+
+    if (chatSessionId) {
+      return chatSessionId;
+    }
+
+    if (!chatSessionRequestRef.current) {
+      chatSessionRequestRef.current = createServerChatSession()
+        .then((sessionId) => {
+          setChatSessionId(sessionId);
+          return sessionId;
+        })
+        .finally(() => {
+          chatSessionRequestRef.current = null;
+        });
+    }
+
+    return chatSessionRequestRef.current;
+  }
+
+  async function sendMessageToApi(activeChatSessionId: string, content: string) {
+    const response = await fetch(
+      `/api/v1/chat-sessions/${activeChatSessionId}/messages`,
+      {
+        body: JSON.stringify({
+          content,
+        }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
+    );
+
+    if (!response.ok) {
+      const errorPayload = await readJsonResponse<ApiErrorResponse>(response);
+      throw new Error(errorPayload.error.message || "Failed to send message.");
+    }
+
+    const payload =
+      await readJsonResponse<ApiSuccessResponse<ChatSessionMessagePayload>>(response);
+
+    return payload.data.assistantMessage;
+  }
+
+  async function sendMessage(content: string) {
     const normalizedContent = content.trim();
 
     if (!normalizedContent || isTyping) {
@@ -125,26 +305,55 @@ export default function KioskExperience({
       createMessage("user", normalizedContent),
     ];
 
+    setChatError(null);
     setMessages(nextMessages);
     setDraft("");
     setIsTyping(true);
 
-    typingTimeoutRef.current = window.setTimeout(() => {
-      setMessages((currentMessages) => [
-        ...currentMessages,
-        createMessage(
-          "assistant",
-          buildMockReply(
-            currentMessages.filter((message) => message.role === "assistant").length,
-            productName,
-            brandName,
-            category,
-          ),
-        ),
-      ]);
+    try {
+      const activeChatSessionId =
+        chatSessionId ?? (await ensureServerChatSession());
+
+      if (activeChatSessionId) {
+        const assistantMessage = await sendMessageToApi(
+          activeChatSessionId,
+          normalizedContent,
+        );
+
+        setMessages((currentMessages) => [
+          ...currentMessages,
+          assistantMessage,
+        ]);
+      } else {
+        typingTimeoutRef.current = window.setTimeout(() => {
+          setMessages((currentMessages) => [
+            ...currentMessages,
+            createMessage(
+              "assistant",
+              buildMockReply(
+                currentMessages.filter((message) => message.role === "assistant").length,
+                productName,
+                brandName,
+                category,
+              ),
+            ),
+          ]);
+          setIsTyping(false);
+          typingTimeoutRef.current = null;
+        }, 900);
+
+        return;
+      }
+    } catch (error) {
+      setChatError(
+        error instanceof Error
+          ? error.message
+          : "Live chat is unavailable right now.",
+      );
+    } finally {
       setIsTyping(false);
       typingTimeoutRef.current = null;
-    }, 900);
+    }
   }
 
   function handleLeadSubmit(event: FormEvent<HTMLFormElement>) {
@@ -382,21 +591,64 @@ export default function KioskExperience({
           <aside className="border-b border-white/10 px-4 py-6 lg:border-b-0 lg:border-r lg:px-6">
             <div className="rounded-[1.75rem] border border-white/10 bg-white/6 p-5 backdrop-blur">
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary/90">
-                Sales guide
+                Current device
               </p>
-              <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-tight">
-                Typed, kiosk-first conversation
-              </h2>
-              <p className="mt-4 text-sm leading-7 text-white/65">
-                Keep the exchange short, confident, and grounded in the active
-                product. If the customer is ready to finish, move into lead
-                capture instead of leaving the session hanging.
-              </p>
+
+              <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/25">
+                {showImagePreview ? (
+                  <div
+                    className="h-48 w-full bg-cover bg-center"
+                    style={{ backgroundImage: `url(${idleMediaUrl})` }}
+                    aria-label={`${productName} preview`}
+                  />
+                ) : (
+                  <div className="kiosk-gradient-bg flex h-48 w-full flex-col justify-end p-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/60">
+                      {category}
+                    </p>
+                    <h2 className="mt-2 font-display text-3xl font-semibold leading-tight text-white">
+                      {productName}
+                    </h2>
+                    <p className="mt-2 text-sm text-white/72">{brandName}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-5">
+                <h2 className="font-display text-3xl font-semibold leading-tight tracking-tight">
+                  {brandName} {productName}
+                </h2>
+                <p className="mt-2 text-sm uppercase tracking-[0.24em] text-white/45">
+                  {category}
+                </p>
+                <p className="mt-4 text-sm leading-7 text-white/65">
+                  {marketingSummary}
+                </p>
+              </div>
+
               <div className="mt-6 rounded-[1.25rem] border border-white/10 bg-black/15 px-4 py-4 text-sm text-white/72">
-                <p className="font-medium text-white">Current product</p>
-                <p className="mt-1">{brandName} {productName}</p>
-                <p className="mt-3 font-medium text-white">Mode</p>
+                <p className="font-medium text-white">Device mode</p>
                 <p className="mt-1">{sourceLabel}</p>
+                <p className="mt-3 font-medium text-white">Chat source</p>
+                <p className="mt-1">
+                  {deviceSessionId ? "Live API and AI" : "Preview fallback"}
+                </p>
+                <p className="mt-3 font-medium text-white">Sales positioning</p>
+                <p className="mt-1">{comparisonSnippet}</p>
+              </div>
+
+              <div className="mt-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary/90">
+                  Key specs
+                </p>
+                <ul className="mt-4 space-y-3 text-sm leading-6 text-white/78">
+                  {marketingHighlights.map((highlight) => (
+                    <li key={highlight} className="flex gap-3">
+                      <span className="mt-2 h-2 w-2 rounded-full bg-primary/85" />
+                      <span>{highlight}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           </aside>
@@ -439,11 +691,18 @@ export default function KioskExperience({
             <form
               onSubmit={(event) => {
                 event.preventDefault();
-                sendMessage(draft);
+                void sendMessage(draft);
               }}
               className="border-t border-white/10 px-4 py-4 sm:px-6"
             >
-              <div className="mx-auto flex max-w-4xl flex-col gap-3 sm:flex-row">
+              <div className="mx-auto max-w-4xl">
+                {chatError ? (
+                  <div className="mb-3 rounded-xl border border-amber-400/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+                    {chatError}
+                  </div>
+                ) : null}
+
+                <div className="flex flex-col gap-3 sm:flex-row">
                 <input
                   type="text"
                   value={draft}
@@ -459,6 +718,7 @@ export default function KioskExperience({
                   Send
                   <ArrowRight className="h-4 w-4" />
                 </button>
+                </div>
               </div>
             </form>
           </section>
