@@ -13,6 +13,6 @@ export function buildChatGreeting(product: Product) {
   const productLabel = `${product.brand} ${product.name}`;
 
   return createAssistantMessage(
-    `Hi, I'm the SaleSense guide for the ${productLabel}. Tell me what matters most in a ${product.category.toLowerCase()}, and I'll help you decide if this demo is a fit.`,
+    `Hi there! I'm your virtual sales assistant for the ${productLabel}. I can tell you all about it, help compare it with other options, or answer any questions. What brings you in today?`,
   );
 }

@@ -116,6 +116,24 @@ export async function getDeviceSessionDetailById(deviceSessionId: string) {
   } satisfies DeviceSessionDetail;
 }
 
+export async function countActiveDeviceSessionsByStore(storeId: string) {
+  const supabase = createAdminSupabaseClient();
+  const { count, error } = await supabase
+    .from("device_sessions")
+    .select("id", {
+      count: "exact",
+      head: true,
+    })
+    .eq("store_id", storeId)
+    .in("state", ["idle", "engaged", "collecting-lead"]);
+
+  if (error) {
+    throw new Error(`Failed to count device sessions: ${error.message}`);
+  }
+
+  return count ?? 0;
+}
+
 export async function touchDeviceSession(
   deviceSessionId: string,
   state: DeviceSessionState,

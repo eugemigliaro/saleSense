@@ -49,81 +49,83 @@
 }
 
 :root {
-  --background: #f7f9fc;
-  --foreground: #0f172a;
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #2563eb;
-  --primary-foreground: #eff6ff;
-  --secondary: #eef2ff;
-  --secondary-foreground: #1e293b;
-  --muted: #edf2f7;
-  --muted-foreground: #64748b;
-  --accent: #2563eb;
-  --accent-foreground: #eff6ff;
-  --destructive: #dc2626;
-  --border: #dbe4f0;
-  --input: #dbe4f0;
-  --ring: #60a5fa;
-  --chart-1: #93c5fd;
-  --chart-2: #60a5fa;
-  --chart-3: #2563eb;
-  --chart-4: #1d4ed8;
-  --chart-5: #172554;
-  --radius: 0.9rem;
-  --sidebar: #f8fafc;
-  --sidebar-foreground: #0f172a;
-  --sidebar-primary: #2563eb;
-  --sidebar-primary-foreground: #eff6ff;
-  --sidebar-accent: #eef2ff;
-  --sidebar-accent-foreground: #1e293b;
-  --sidebar-border: #dbe4f0;
-  --sidebar-ring: #60a5fa;
-  --seller-gradient: linear-gradient(180deg, #f8fbff 0%, #eef4ff 52%, #f7f9fc 100%);
-  --seller-hero: linear-gradient(135deg, rgba(37, 99, 235, 0.14), rgba(59, 130, 246, 0.04));
-  --kiosk-bg: #0b1120;
-  --kiosk-surface: #101a30;
-  --kiosk-text: #f8fafc;
-  --kiosk-muted: #94a3b8;
-  --kiosk-accent: #60a5fa;
-  --kiosk-accent-glow: rgba(96, 165, 250, 0.32);
-  --kiosk-gradient: linear-gradient(135deg, #2563eb, #7c3aed);
+  --background: hsl(220 20% 97%);
+  --foreground: hsl(222 47% 11%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(222 47% 11%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(222 47% 11%);
+  --primary: hsl(217 91% 60%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(220 14% 96%);
+  --secondary-foreground: hsl(222 47% 11%);
+  --muted: hsl(220 14% 96%);
+  --muted-foreground: hsl(220 9% 46%);
+  --accent: hsl(217 91% 60%);
+  --accent-foreground: hsl(0 0% 100%);
+  --destructive: hsl(0 84% 60%);
+  --border: hsl(220 13% 91%);
+  --input: hsl(220 13% 91%);
+  --ring: hsl(217 91% 60%);
+  --chart-1: hsl(217 91% 60%);
+  --chart-2: hsl(217 91% 70%);
+  --chart-3: hsl(222 47% 11%);
+  --chart-4: hsl(220 14% 96%);
+  --chart-5: hsl(220 9% 46%);
+  --radius: 0.75rem;
+  --sidebar: hsl(0 0% 98%);
+  --sidebar-foreground: hsl(240 5.3% 26.1%);
+  --sidebar-primary: hsl(217 91% 60%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(220 14% 96%);
+  --sidebar-accent-foreground: hsl(222 47% 11%);
+  --sidebar-border: hsl(220 13% 91%);
+  --sidebar-ring: hsl(217 91% 60%);
+  --kiosk-bg: hsl(222 47% 6%);
+  --kiosk-surface: hsl(222 30% 12%);
+  --kiosk-text: hsl(210 40% 98%);
+  --kiosk-muted: hsl(215 20% 55%);
+  --kiosk-accent: hsl(217 91% 60%);
+  --kiosk-accent-glow: hsl(217 100% 70%);
+  --kiosk-gradient: linear-gradient(
+    135deg,
+    hsl(217 91% 60%),
+    hsl(260 80% 60%)
+  );
 }
 
 .dark {
-  --background: #0b1120;
-  --foreground: #f8fafc;
-  --card: #111b31;
-  --card-foreground: #f8fafc;
-  --popover: #111b31;
-  --popover-foreground: #f8fafc;
-  --primary: #60a5fa;
-  --primary-foreground: #0b1120;
-  --secondary: #17233c;
-  --secondary-foreground: #f8fafc;
-  --muted: #17233c;
-  --muted-foreground: #94a3b8;
-  --accent: #60a5fa;
-  --accent-foreground: #0b1120;
-  --destructive: #ef4444;
-  --border: rgba(148, 163, 184, 0.18);
-  --input: rgba(148, 163, 184, 0.18);
-  --ring: #60a5fa;
-  --chart-1: #93c5fd;
-  --chart-2: #60a5fa;
-  --chart-3: #2563eb;
-  --chart-4: #7c3aed;
-  --chart-5: #c4b5fd;
-  --sidebar: #111b31;
-  --sidebar-foreground: #f8fafc;
-  --sidebar-primary: #60a5fa;
-  --sidebar-primary-foreground: #0b1120;
-  --sidebar-accent: #17233c;
-  --sidebar-accent-foreground: #f8fafc;
-  --sidebar-border: rgba(148, 163, 184, 0.18);
-  --sidebar-ring: #60a5fa;
+  --background: hsl(222 47% 6%);
+  --foreground: hsl(210 40% 98%);
+  --card: hsl(222 30% 12%);
+  --card-foreground: hsl(210 40% 98%);
+  --popover: hsl(222 30% 12%);
+  --popover-foreground: hsl(210 40% 98%);
+  --primary: hsl(217 91% 60%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(222 30% 16%);
+  --secondary-foreground: hsl(210 40% 98%);
+  --muted: hsl(222 30% 16%);
+  --muted-foreground: hsl(215 20% 55%);
+  --accent: hsl(217 91% 60%);
+  --accent-foreground: hsl(0 0% 100%);
+  --destructive: hsl(0 62% 30%);
+  --border: hsl(222 30% 20%);
+  --input: hsl(222 30% 20%);
+  --ring: hsl(217 91% 60%);
+  --chart-1: hsl(217 91% 60%);
+  --chart-2: hsl(217 91% 70%);
+  --chart-3: hsl(210 40% 98%);
+  --chart-4: hsl(222 30% 16%);
+  --chart-5: hsl(215 20% 55%);
+  --sidebar: hsl(222 30% 12%);
+  --sidebar-foreground: hsl(210 40% 98%);
+  --sidebar-primary: hsl(217 91% 60%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(222 30% 16%);
+  --sidebar-accent-foreground: hsl(210 40% 98%);
+  --sidebar-border: hsl(222 30% 20%);
+  --sidebar-ring: hsl(217 91% 60%);
 }
 
 @layer base {
@@ -137,9 +139,7 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    background-image:
-      radial-gradient(circle at top, rgba(59, 130, 246, 0.08), transparent 36%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(247, 249, 252, 1));
+    font-family: var(--font-body);
   }
 }
 
@@ -149,26 +149,11 @@
   }
 
   .text-gradient {
-    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    background: var(--kiosk-gradient);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
     color: transparent;
-  }
-
-  .seller-shell {
-    background: var(--seller-gradient);
-  }
-
-  .seller-panel {
-    background: rgba(255, 255, 255, 0.78);
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    box-shadow: 0 24px 80px -48px rgba(15, 23, 42, 0.35);
-    backdrop-filter: blur(18px);
-  }
-
-  .seller-hero {
-    background: var(--seller-hero);
   }
 
   .kiosk-bg {
@@ -197,23 +182,16 @@
 
   .kiosk-glow {
     box-shadow:
-      0 0 40px var(--kiosk-accent-glow),
-      0 0 90px rgba(37, 99, 235, 0.1);
-  }
-
-  .kiosk-screen {
-    background:
-      radial-gradient(circle at top, rgba(59, 130, 246, 0.16), transparent 28%),
-      radial-gradient(circle at 80% 20%, rgba(124, 58, 237, 0.12), transparent 22%),
-      linear-gradient(180deg, #0f172a 0%, #0b1120 100%);
+      0 0 40px rgba(96, 165, 250, 0.3),
+      0 0 80px rgba(96, 165, 250, 0.1);
   }
 
   .kiosk-pulse-ring {
-    animation: kiosk-pulse-ring 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    animation: pulseRing 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 }
 
-@keyframes kiosk-pulse-ring {
+@keyframes pulseRing {
   0%,
   100% {
     opacity: 0.35;

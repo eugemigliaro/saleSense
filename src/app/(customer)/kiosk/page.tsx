@@ -14,20 +14,20 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const FALLBACK_PRODUCT = {
-  brandName: "SaleSense",
-  category: "Interactive retail demo",
+  brandName: "Apple",
+  category: "Smartphone",
   comparisonSnippet:
-    "Designed for in-store guided selling, quick qualification, and clear lead capture.",
+    "Apple flagship: best camera system, titanium build, A18 Pro, largest display at 6.9 inches.",
   deviceSessionId: null,
-  detailsMarkdown: `# Flagship product preview
+  detailsMarkdown: `# iPhone 16 Pro Max
 
-- Guided, kiosk-first product conversation
-- Persistent seller-to-customer visual language
-- Lead capture without leaving the device
-- Active product context can hydrate from live device sessions`,
+- A18 Pro chip
+- 48MP camera system
+- Titanium design
+- All-day battery life`,
   idleMediaUrl: null,
   productId: null,
-  productName: "Flagship product preview",
+  productName: "iPhone 16 Pro Max",
   sourceLabel: "Preview mode",
 };
 

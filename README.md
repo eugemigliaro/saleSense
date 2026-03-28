@@ -65,7 +65,13 @@ The seller area expects a Supabase Auth user with:
 Create or update a local seller user with:
 
 ```bash
-pnpm local:seller -- --email deva@salesense.local --store-id demo-store --name "Dev A" --password "dev-a-local-123"
+pnpm local:seller --email deva@salesense.local --store-id demo-store --name "Dev A" --password "dev-a-local-123"
+```
+
+Reset the local store catalog back to the seeded demo products with:
+
+```bash
+pnpm local:seller --store-id demo-store --reset-store
 ```
 
 If you omit flags, the script uses these defaults:
@@ -80,11 +86,16 @@ What the script does:
 - creates the user if it does not exist
 - updates the user if it already exists
 - sets or resets the password
+- optionally clears all products for the store when you pass `--reset-store`
 - sets:
   - `app_metadata.role = "manager"`
   - `app_metadata.store_id = <store id>`
   - `user_metadata.name = <name>`
   - `user_metadata.store_id = <store id>`
+- seeds a demo catalog with:
+  - `iPhone 16 Pro Max`
+  - `Galaxy S25 Ultra`
+  - `Pixel 9 Pro`
 
 After creating the user:
 
@@ -101,7 +112,8 @@ pnpm build
 pnpm supabase:start
 pnpm supabase:status
 pnpm supabase:stop
-pnpm local:seller -- --email manager@salesense.local --store-id demo-store --password "salesense-local-123"
+pnpm local:seller --email manager@salesense.local --store-id demo-store --password "salesense-local-123"
+pnpm local:seller --store-id demo-store --reset-store
 ```
 
 ## Current Routes

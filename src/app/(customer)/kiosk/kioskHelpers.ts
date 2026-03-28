@@ -1,66 +1,7 @@
 import type { ChatMessage } from "@/types/domain";
 
 export function buildPreviewGreeting(productName: string, category: string) {
-  return `Hi, I'm ready to help you evaluate the ${productName}. Tell me what matters most in a ${category.toLowerCase()}, and I'll guide the comparison.`;
-}
-
-function extractMarkdownBulletLines(detailsMarkdown: string) {
-  return detailsMarkdown
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => /^[-*]\s+/.test(line))
-    .map((line) => line.replace(/^[-*]\s+/, "").replace(/\*\*/g, ""))
-    .filter(Boolean);
-}
-
-function extractMarkdownParagraphs(detailsMarkdown: string) {
-  return detailsMarkdown
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith("#") && !/^[-*]\s+/.test(line))
-    .map((line) => line.replace(/\*\*/g, ""))
-    .filter(Boolean);
-}
-
-export function buildMarketingHighlights(
-  detailsMarkdown: string,
-  comparisonSnippet: string,
-) {
-  const bulletLines = extractMarkdownBulletLines(detailsMarkdown);
-  const paragraphLines = extractMarkdownParagraphs(detailsMarkdown);
-  const snippetParts = comparisonSnippet
-    .split(/[.;]/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  const highlights = [...bulletLines, ...snippetParts].slice(0, 4);
-
-  if (highlights.length > 0) {
-    return highlights;
-  }
-
-  return paragraphLines.slice(0, 4);
-}
-
-export function buildMarketingSummary(
-  detailsMarkdown: string,
-  comparisonSnippet: string,
-) {
-  const paragraphLines = extractMarkdownParagraphs(detailsMarkdown);
-
-  if (paragraphLines.length > 0) {
-    return paragraphLines[0];
-  }
-
-  return comparisonSnippet;
-}
-
-export function isImageUrl(url: string | null) {
-  if (!url) {
-    return false;
-  }
-
-  return /\.(avif|gif|jpe?g|png|webp|svg)$/i.test(url);
+  return `Hi there! I'm your virtual sales assistant for the ${productName}. I can tell you all about it, help compare it with other options, or answer any questions about ${category.toLowerCase()} choices. What brings you in today?`;
 }
 
 export function buildMockReply(

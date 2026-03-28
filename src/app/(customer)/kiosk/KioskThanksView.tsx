@@ -1,18 +1,20 @@
+"use client";
+
+import { motion } from "framer-motion";
+
 export function KioskThanksView() {
   return (
-    <main className="kiosk-screen kiosk-text flex min-h-screen items-center justify-center px-6 text-center">
-      <div className="max-w-md">
-        <div className="mx-auto flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full kiosk-gradient-bg kiosk-glow text-3xl font-semibold text-white">
-          ✓
-        </div>
-        <h1 className="mt-6 font-display text-4xl font-semibold tracking-tight">
-          Thank you
-        </h1>
-        <p className="mt-3 text-base leading-7 text-white/65">
-          A team member can follow up soon. This kiosk will reset back to idle
-          automatically.
-        </p>
+    <motion.div
+      className="fixed inset-0 kiosk-bg flex items-center justify-center"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="text-center">
+        <div className="mb-4 text-6xl text-white">✓</div>
+        <h2 className="kiosk-text font-display text-3xl font-bold">Thank you!</h2>
+        <p className="kiosk-muted mt-2">A team member will reach out soon.</p>
       </div>
-    </main>
+    </motion.div>
   );
 }
