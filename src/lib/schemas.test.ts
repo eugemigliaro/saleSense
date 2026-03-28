@@ -15,6 +15,7 @@ describe("normalizeCreateLeadInput", () => {
   it("normalizes optional empty strings to null", () => {
     const parsed = createLeadSchema.parse({
       aiSummary: " ",
+      chatSessionId: "22222222-2222-4222-8222-222222222222",
       customerEmail: " Prospect@Example.com ",
       customerName: " Prospect Buyer ",
       customerPhone: " ",
@@ -25,6 +26,7 @@ describe("normalizeCreateLeadInput", () => {
 
     expect(normalizeCreateLeadInput(parsed)).toEqual({
       aiSummary: null,
+      chatSessionId: "22222222-2222-4222-8222-222222222222",
       customerEmail: "prospect@example.com",
       customerName: "Prospect Buyer",
       customerPhone: null,
@@ -60,7 +62,7 @@ describe("createDeviceSessionSchema", () => {
 });
 
 describe("normalizeSendChatMessageInput", () => {
-  it("returns the normalized message content without requiring client history", () => {
+  it("returns the normalized message content without requiring client transcript", () => {
     const parsed = sendChatMessageSchema.parse({
       content: "Tell me more about the camera.",
     });

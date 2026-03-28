@@ -26,6 +26,7 @@ const FALLBACK_PRODUCT = {
 - Lead capture without leaving the device
 - Active product context can hydrate from live device sessions`,
   idleMediaUrl: null,
+  productId: null,
   productName: "Flagship product preview",
   sourceLabel: "Preview mode",
 };
@@ -50,6 +51,7 @@ export default async function KioskPage({ searchParams }: KioskPageProps) {
       deviceSessionId={detail.deviceSession.id}
       detailsMarkdown={detail.product.detailsMarkdown}
       idleMediaUrl={detail.product.idleMediaUrl}
+      productId={detail.product.id}
       productName={detail.product.name}
       sourceLabel={
         requestedSessionId === PREVIEW_DEVICE_SESSION_ID

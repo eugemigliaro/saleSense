@@ -14,6 +14,41 @@ const COMPARISON_PRODUCT_LIMIT = 4;
 const COMPARISON_SNIPPET_MAX_LENGTH = 800;
 const HISTORY_MESSAGE_LIMIT = 10;
 const SALES_AGENT_MESSAGE_MAX_LENGTH = 1_500;
+const SALES_AGENT_RESPONSE_JSON_SCHEMA = {
+  additionalProperties: false,
+  properties: {
+    confidence: {
+      enum: ["high", "medium", "low"],
+      type: "string",
+    },
+    language: {
+      enum: ["en", "es"],
+      type: "string",
+    },
+    message: {
+      type: "string",
+    },
+    objective: {
+      enum: ["qualify", "pitch", "compare", "redirect", "handoff"],
+      type: "string",
+    },
+    recommendedAlternativeProductName: {
+      type: ["string", "null"],
+    },
+    suggestedTryout: {
+      type: ["string", "null"],
+    },
+  },
+  required: [
+    "message",
+    "language",
+    "objective",
+    "suggestedTryout",
+    "recommendedAlternativeProductName",
+    "confidence",
+  ],
+  type: "object",
+} as const;
 
 const salesAgentDraftSchema = z.object({
   confidence: z.enum(["high", "medium", "low"]),
@@ -257,9 +292,10 @@ export function buildFallbackSalesAgentReply(
 
 export async function generateSalesAgentDraftWithGemini(input: SalesAgentInput) {
   const prompt = buildSalesAgentPrompt(input);
-  const rawDraft = await generateGeminiJson(
+  const rawDraft = await generateGeminiJson<unknown>(
     prompt,
     SALES_AGENT_SYSTEM_INSTRUCTION,
+    SALES_AGENT_RESPONSE_JSON_SCHEMA,
   );
 
   return salesAgentDraftSchema.parse(rawDraft);

@@ -13,7 +13,6 @@ const LEAD_PHONE_MAX_LENGTH = 50;
 const LEAD_SUMMARY_MAX_LENGTH = 4_000;
 const LEAD_SHORT_TEXT_MAX_LENGTH = 200;
 const CHAT_MESSAGE_MAX_LENGTH = 2_000;
-const CHAT_HISTORY_MAX_ITEMS = 20;
 
 function requiredText(label: string, maxLength: number) {
   return z
@@ -103,6 +102,10 @@ export const deviceSessionIdParamsSchema = z.object({
 export const createLeadSchema = z
   .object({
     aiSummary: optionalText("AI summary", LEAD_SUMMARY_MAX_LENGTH),
+    chatSessionId: z
+      .string()
+      .uuid("Chat session id must be a valid UUID.")
+      .optional(),
     customerEmail: emailAddress("Customer email", LEAD_EMAIL_MAX_LENGTH),
     customerName: requiredText("Customer name", LEAD_NAME_MAX_LENGTH),
     customerPhone: optionalText("Customer phone", LEAD_PHONE_MAX_LENGTH),
@@ -124,10 +127,9 @@ export const createChatSessionSchema = z
   })
   .strict();
 
-const sendChatHistoryMessageSchema = z
+const sendChatMessageBodySchema = z
   .object({
-    content: requiredText("History message", CHAT_MESSAGE_MAX_LENGTH),
-    role: z.enum(["assistant", "user"]),
+    content: requiredText("Message", CHAT_MESSAGE_MAX_LENGTH),
   })
   .strict();
 
@@ -135,18 +137,7 @@ export const chatSessionIdParamsSchema = z.object({
   id: z.string().uuid("Chat session id must be a valid UUID."),
 });
 
-export const sendChatMessageSchema = z
-  .object({
-    content: requiredText("Message", CHAT_MESSAGE_MAX_LENGTH),
-    history: z
-      .array(sendChatHistoryMessageSchema)
-      .max(
-        CHAT_HISTORY_MAX_ITEMS,
-        `History must contain at most ${CHAT_HISTORY_MAX_ITEMS} messages.`,
-      )
-      .optional(),
-  })
-  .strict();
+export const sendChatMessageSchema = sendChatMessageBodySchema;
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
@@ -155,17 +146,13 @@ export type CreateChatSessionInput = z.infer<typeof createChatSessionSchema>;
 
 export interface CreateLeadInput {
   aiSummary: string | null;
+  chatSessionId: string | null;
   customerEmail: string;
   customerName: string;
   customerPhone: string | null;
   inferredInterest: string | null;
   nextBestProduct: string | null;
   productId: string;
-}
-
-export interface SendChatHistoryMessageInput {
-  content: string;
-  role: "assistant" | "user";
 }
 
 export interface SendChatMessageInput {
@@ -177,6 +164,7 @@ export function normalizeCreateLeadInput(
 ): CreateLeadInput {
   return {
     aiSummary: value.aiSummary ?? null,
+    chatSessionId: value.chatSessionId ?? null,
     customerEmail: value.customerEmail,
     customerName: value.customerName,
     customerPhone: value.customerPhone ?? null,

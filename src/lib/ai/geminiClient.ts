@@ -4,43 +4,9 @@ import { GoogleGenAI } from "@google/genai";
 
 import { getGeminiApiKey, getGeminiModel } from "@/lib/env";
 
-const SALES_AGENT_RESPONSE_JSON_SCHEMA = {
-  additionalProperties: false,
-  properties: {
-    confidence: {
-      enum: ["high", "medium", "low"],
-      type: "string",
-    },
-    language: {
-      enum: ["en", "es"],
-      type: "string",
-    },
-    message: {
-      type: "string",
-    },
-    objective: {
-      enum: ["qualify", "pitch", "compare", "redirect", "handoff"],
-      type: "string",
-    },
-    recommendedAlternativeProductName: {
-      type: ["string", "null"],
-    },
-    suggestedTryout: {
-      type: ["string", "null"],
-    },
-  },
-  required: [
-    "message",
-    "language",
-    "objective",
-    "suggestedTryout",
-    "recommendedAlternativeProductName",
-    "confidence",
-  ],
-  type: "object",
-} as const;
-
 let cachedClient: GoogleGenAI | null = null;
+
+type ResponseJsonSchema = Record<string, unknown>;
 
 function getClient() {
   if (!cachedClient) {
@@ -67,14 +33,15 @@ function parseJsonText(text: string) {
   return JSON.parse(normalized);
 }
 
-export async function generateGeminiJson(
+export async function generateGeminiJson<T>(
   prompt: string,
   systemInstruction: string,
+  responseJsonSchema: ResponseJsonSchema,
 ) {
   const client = getClient();
   const response = await client.models.generateContent({
     config: {
-      responseJsonSchema: SALES_AGENT_RESPONSE_JSON_SCHEMA,
+      responseJsonSchema,
       responseMimeType: "application/json",
       systemInstruction,
     },
@@ -82,5 +49,5 @@ export async function generateGeminiJson(
     model: getGeminiModel(),
   });
 
-  return parseJsonText(response.text ?? "");
+  return parseJsonText(response.text ?? "") as T;
 }

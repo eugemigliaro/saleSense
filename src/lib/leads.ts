@@ -1,5 +1,10 @@
 import "server-only";
 
+import { generateLeadInsights } from "@/lib/ai/leadInsights";
+import {
+  getChatSessionContextById,
+  listChatMessagesBySessionId,
+} from "@/lib/chat-sessions";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import type { CreateLeadInput } from "@/lib/schemas";
 import type { Database } from "@/types/database";
@@ -37,6 +42,12 @@ function asProductScopeRow(value: unknown) {
   return value as ProductScopeRow;
 }
 
+interface LeadInsightValues {
+  aiSummary: string | null;
+  inferredInterest: string | null;
+  nextBestProduct: string | null;
+}
+
 export function mapLeadRow(row: LeadRow): Lead {
   return {
     aiSummary: row.ai_summary,
@@ -50,6 +61,60 @@ export function mapLeadRow(row: LeadRow): Lead {
     productId: row.product_id,
     storeId: row.store_id,
   };
+}
+
+async function resolveLeadInsightValues(
+  input: CreateLeadInput,
+  storeId: string,
+): Promise<LeadInsightValues> {
+  const fallbackValues: LeadInsightValues = {
+    aiSummary: input.aiSummary,
+    inferredInterest: input.inferredInterest,
+    nextBestProduct: input.nextBestProduct,
+  };
+
+  if (!input.chatSessionId) {
+    return fallbackValues;
+  }
+
+  try {
+    const chatSessionContext = await getChatSessionContextById(input.chatSessionId);
+
+    if (!chatSessionContext) {
+      return fallbackValues;
+    }
+
+    if (
+      chatSessionContext.session.productId !== input.productId ||
+      chatSessionContext.session.storeId !== storeId
+    ) {
+      return fallbackValues;
+    }
+
+    const history = await listChatMessagesBySessionId(input.chatSessionId, 24);
+
+    if (history.length === 0) {
+      return fallbackValues;
+    }
+
+    const leadInsights = await generateLeadInsights({
+      activeProduct: chatSessionContext.product,
+      history,
+      storeId,
+    });
+
+    return {
+      aiSummary: leadInsights.aiSummary ?? fallbackValues.aiSummary,
+      inferredInterest:
+        leadInsights.inferredInterest ?? fallbackValues.inferredInterest,
+      nextBestProduct:
+        leadInsights.nextBestProduct ?? fallbackValues.nextBestProduct,
+    };
+  } catch (error) {
+    console.error("Failed to enrich lead from chat transcript.", error);
+
+    return fallbackValues;
+  }
 }
 
 export async function createLeadForProduct(input: CreateLeadInput) {
@@ -70,13 +135,18 @@ export async function createLeadForProduct(input: CreateLeadInput) {
     return null;
   }
 
+  const leadInsightValues = await resolveLeadInsightValues(
+    input,
+    asProductScopeRow(product).store_id,
+  );
+
   const insertPayload: LeadInsert = {
-    ai_summary: input.aiSummary,
+    ai_summary: leadInsightValues.aiSummary,
     customer_email: input.customerEmail,
     customer_name: input.customerName,
     customer_phone: input.customerPhone,
-    inferred_interest: input.inferredInterest,
-    next_best_product: input.nextBestProduct,
+    inferred_interest: leadInsightValues.inferredInterest,
+    next_best_product: leadInsightValues.nextBestProduct,
     product_id: input.productId,
     store_id: asProductScopeRow(product).store_id,
   };

@@ -107,13 +107,15 @@ pnpm local:seller -- --email manager@salesense.local --store-id demo-store --pas
 ## Current Routes
 
 - `/` boot page
-- `/seller` protected seller surface
+- `/seller` protected seller workspace with real product CRUD, kiosk launch, and lead refresh
 - `/seller/sign-in` seller auth entrypoint
-- `/kiosk` customer route scaffold
+- `/kiosk` customer kiosk preview
+- `/kiosk?session=<device-session-id>` live kiosk route backed by the Milestone 1 APIs
 - `/api/v1/health` health check
 
 ## Notes
 
 - Local seller sign-in uses email/password.
 - `pnpm local:seller` is intended for local development only.
-- The current auth layer is ready for local development, but the product, lead, and device APIs are still the next Dev A milestone.
+- The kiosk uses the live Gemini-backed chat flow when opened with a valid `deviceSessionId`.
+- The lead form now posts to `/api/v1/leads` for live sessions and falls back to a local-only thank-you flow in preview mode.
