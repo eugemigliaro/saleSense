@@ -1,4 +1,6 @@
 export type StoreManagerRole = "manager";
+export type ChatMessageRole = "assistant" | "user";
+export type ChatSessionStatus = "active" | "completed";
 
 export type DeviceSessionState =
   | "idle"
@@ -35,6 +37,23 @@ export interface DeviceSession {
   startedAt: string;
   state: DeviceSessionState;
   storeId: string;
+}
+
+export interface ChatSession {
+  deviceSessionId: string;
+  id: string;
+  lastActivityAt: string;
+  productId: string;
+  startedAt: string;
+  status: ChatSessionStatus;
+  storeId: string;
+}
+
+export interface ChatMessage {
+  content: string;
+  createdAt: string;
+  id: string;
+  role: ChatMessageRole;
 }
 
 export interface Lead {

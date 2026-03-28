@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createDeviceSessionSchema,
   createLeadSchema,
+  normalizeSendChatMessageInput,
+  sendChatMessageSchema,
   normalizeCreateLeadInput,
   updateProductSchema,
 } from "@/lib/schemas";
@@ -43,5 +46,28 @@ describe("updateProductSchema", () => {
     }
 
     expect(result.error.issues[0]?.path).toEqual(["body"]);
+  });
+});
+
+describe("createDeviceSessionSchema", () => {
+  it("requires a valid product id", () => {
+    const result = createDeviceSessionSchema.safeParse({
+      productId: "not-a-uuid",
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("normalizeSendChatMessageInput", () => {
+  it("defaults history to an empty array", () => {
+    const parsed = sendChatMessageSchema.parse({
+      content: "Tell me more about the camera.",
+    });
+
+    expect(normalizeSendChatMessageInput(parsed)).toEqual({
+      content: "Tell me more about the camera.",
+      history: [],
+    });
   });
 });

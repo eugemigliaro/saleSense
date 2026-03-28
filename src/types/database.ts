@@ -19,6 +19,89 @@ export interface Database {
     Enums: Record<string, never>;
     Functions: Record<string, never>;
     Tables: {
+      chat_sessions: {
+        Insert: {
+          device_session_id: string;
+          id?: string;
+          last_activity_at?: string;
+          product_id: string;
+          started_at?: string;
+          status?: string;
+          store_id: string;
+        };
+        Relationships: [
+          {
+            columns: ["device_session_id"];
+            foreignKeyName: "chat_sessions_device_session_id_fkey";
+            isOneToOne: false;
+            referencedColumns: ["id"];
+            referencedRelation: "device_sessions";
+          },
+          {
+            columns: ["product_id"];
+            foreignKeyName: "chat_sessions_product_id_fkey";
+            isOneToOne: false;
+            referencedColumns: ["id"];
+            referencedRelation: "products";
+          },
+        ];
+        Row: {
+          device_session_id: string;
+          id: string;
+          last_activity_at: string;
+          product_id: string;
+          started_at: string;
+          status: string;
+          store_id: string;
+        };
+        Update: {
+          device_session_id?: string;
+          id?: string;
+          last_activity_at?: string;
+          product_id?: string;
+          started_at?: string;
+          status?: string;
+          store_id?: string;
+        };
+      };
+      device_sessions: {
+        Insert: {
+          id?: string;
+          last_activity_at?: string;
+          launched_by_manager_id: string;
+          product_id: string;
+          started_at?: string;
+          state?: string;
+          store_id: string;
+        };
+        Relationships: [
+          {
+            columns: ["product_id"];
+            foreignKeyName: "device_sessions_product_id_fkey";
+            isOneToOne: false;
+            referencedColumns: ["id"];
+            referencedRelation: "products";
+          },
+        ];
+        Row: {
+          id: string;
+          last_activity_at: string;
+          launched_by_manager_id: string;
+          product_id: string;
+          started_at: string;
+          state: string;
+          store_id: string;
+        };
+        Update: {
+          id?: string;
+          last_activity_at?: string;
+          launched_by_manager_id?: string;
+          product_id?: string;
+          started_at?: string;
+          state?: string;
+          store_id?: string;
+        };
+      };
       leads: {
         Insert: {
           ai_summary?: string | null;

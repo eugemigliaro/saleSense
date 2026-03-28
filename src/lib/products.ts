@@ -108,6 +108,21 @@ export async function findProductScopeById(productId: string) {
   } satisfies ProductScope;
 }
 
+export async function getProductById(productId: string) {
+  const supabase = createAdminSupabaseClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select(PRODUCT_COLUMNS)
+    .eq("id", productId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load product: ${error.message}`);
+  }
+
+  return data ? mapProductRow(asProductRow(data)) : null;
+}
+
 export async function listProductsByStore(storeId: string) {
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase

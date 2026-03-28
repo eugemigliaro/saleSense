@@ -12,6 +12,8 @@ const LEAD_EMAIL_MAX_LENGTH = 320;
 const LEAD_PHONE_MAX_LENGTH = 50;
 const LEAD_SUMMARY_MAX_LENGTH = 4_000;
 const LEAD_SHORT_TEXT_MAX_LENGTH = 200;
+const CHAT_MESSAGE_MAX_LENGTH = 2_000;
+const CHAT_HISTORY_MAX_ITEMS = 20;
 
 function requiredText(label: string, maxLength: number) {
   return z
@@ -88,6 +90,16 @@ export const productIdParamsSchema = z.object({
   id: z.string().uuid("Product id must be a valid UUID."),
 });
 
+export const createDeviceSessionSchema = z
+  .object({
+    productId: z.string().uuid("Product id must be a valid UUID."),
+  })
+  .strict();
+
+export const deviceSessionIdParamsSchema = z.object({
+  id: z.string().uuid("Device session id must be a valid UUID."),
+});
+
 export const createLeadSchema = z
   .object({
     aiSummary: optionalText("AI summary", LEAD_SUMMARY_MAX_LENGTH),
@@ -106,8 +118,40 @@ export const createLeadSchema = z
   })
   .strict();
 
+export const createChatSessionSchema = z
+  .object({
+    deviceSessionId: z.string().uuid("Device session id must be a valid UUID."),
+  })
+  .strict();
+
+const sendChatHistoryMessageSchema = z
+  .object({
+    content: requiredText("History message", CHAT_MESSAGE_MAX_LENGTH),
+    role: z.enum(["assistant", "user"]),
+  })
+  .strict();
+
+export const chatSessionIdParamsSchema = z.object({
+  id: z.string().uuid("Chat session id must be a valid UUID."),
+});
+
+export const sendChatMessageSchema = z
+  .object({
+    content: requiredText("Message", CHAT_MESSAGE_MAX_LENGTH),
+    history: z
+      .array(sendChatHistoryMessageSchema)
+      .max(
+        CHAT_HISTORY_MAX_ITEMS,
+        `History must contain at most ${CHAT_HISTORY_MAX_ITEMS} messages.`,
+      )
+      .optional(),
+  })
+  .strict();
+
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
+export type CreateDeviceSessionInput = z.infer<typeof createDeviceSessionSchema>;
+export type CreateChatSessionInput = z.infer<typeof createChatSessionSchema>;
 
 export interface CreateLeadInput {
   aiSummary: string | null;
@@ -117,6 +161,16 @@ export interface CreateLeadInput {
   inferredInterest: string | null;
   nextBestProduct: string | null;
   productId: string;
+}
+
+export interface SendChatHistoryMessageInput {
+  content: string;
+  role: "assistant" | "user";
+}
+
+export interface SendChatMessageInput {
+  content: string;
+  history: SendChatHistoryMessageInput[];
 }
 
 export function normalizeCreateLeadInput(
@@ -130,5 +184,14 @@ export function normalizeCreateLeadInput(
     inferredInterest: value.inferredInterest ?? null,
     nextBestProduct: value.nextBestProduct ?? null,
     productId: value.productId,
+  };
+}
+
+export function normalizeSendChatMessageInput(
+  value: z.infer<typeof sendChatMessageSchema>,
+): SendChatMessageInput {
+  return {
+    content: value.content,
+    history: value.history ?? [],
   };
 }
