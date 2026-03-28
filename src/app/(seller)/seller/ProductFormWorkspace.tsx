@@ -8,6 +8,7 @@ import { useState } from "react";
 
 import type { Product } from "@/types/domain";
 
+import { ProductAiAutocomplete } from "./ProductAiAutocomplete";
 import {
   EMPTY_PRODUCT_FORM,
   toProductFormState,
@@ -88,6 +89,8 @@ export function ProductFormWorkspace({
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
         >
+          <ProductAiAutocomplete onApply={setFormState} />
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-sm font-medium">Product Name</label>

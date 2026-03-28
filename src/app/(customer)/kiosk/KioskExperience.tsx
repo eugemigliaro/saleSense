@@ -42,6 +42,7 @@ export default function KioskExperience({
           key="chat"
           chatError={experience.chatError}
           draft={experience.draft}
+          idleMediaUrl={idleMediaUrl}
           isTyping={experience.isTyping}
           messages={experience.messages}
           productName={productName}
