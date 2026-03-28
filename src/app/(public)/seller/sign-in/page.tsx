@@ -46,7 +46,7 @@ export default async function SellerSignInPage({
           <Card className="border-black/10 bg-white/85 shadow-sm backdrop-blur">
             <CardHeader>
               <CardTitle className="text-xl tracking-tight">
-                Email magic link
+                Email and password
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -74,8 +74,19 @@ export default async function SellerSignInPage({
                     type="email"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    autoComplete="current-password"
+                    id="password"
+                    name="password"
+                    placeholder="Enter your password"
+                    required
+                    type="password"
+                  />
+                </div>
                 <Button className="w-full" type="submit">
-                  Send sign-in link
+                  Sign in
                 </Button>
               </form>
             </CardContent>

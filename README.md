@@ -55,12 +55,15 @@ pnpm dev
 
 ## Local Seller Auth Setup
 
-The seller area expects a Supabase Auth user with a `store_id` in `app_metadata` or `user_metadata`.
+The seller area expects a Supabase Auth user with:
+
+- an email and password
+- a `store_id` in `app_metadata` or `user_metadata`
 
 Create or update a local seller user with:
 
 ```bash
-pnpm local:seller -- --email deva@salesense.local --store-id demo-store --name "Dev A"
+pnpm local:seller -- --email deva@salesense.local --store-id demo-store --name "Dev A" --password "dev-a-local-123"
 ```
 
 If you omit flags, the script uses these defaults:
@@ -68,11 +71,13 @@ If you omit flags, the script uses these defaults:
 - email: `manager@salesense.local`
 - store id: `demo-store`
 - name: `Local Store Manager`
+- password: `salesense-local-123`
 
 What the script does:
 
 - creates the user if it does not exist
 - updates the user if it already exists
+- sets or resets the password
 - sets:
   - `app_metadata.role = "manager"`
   - `app_metadata.store_id = <store id>`
@@ -82,9 +87,7 @@ What the script does:
 After creating the user:
 
 1. Open the app at `/seller/sign-in`
-2. Request a magic link for that email
-3. Open local Mailpit at `http://127.0.0.1:54324`
-4. Click the sign-in link from the email
+2. Sign in with that email and password
 
 ## Useful Commands
 
@@ -96,7 +99,7 @@ pnpm build
 pnpm supabase:start
 pnpm supabase:status
 pnpm supabase:stop
-pnpm local:seller -- --email manager@salesense.local --store-id demo-store
+pnpm local:seller -- --email manager@salesense.local --store-id demo-store --password "salesense-local-123"
 ```
 
 ## Current Routes
@@ -109,6 +112,6 @@ pnpm local:seller -- --email manager@salesense.local --store-id demo-store
 
 ## Notes
 
-- Local seller sign-in uses magic links, not passwords.
-- Local auth emails are captured by Mailpit, not sent to a real inbox.
+- Local seller sign-in uses email/password.
+- `pnpm local:seller` is intended for local development only.
 - The current auth layer is ready for local development, but the product, lead, and device APIs are still the next Dev A milestone.

@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const DEFAULT_EMAIL = "manager@salesense.local";
 const DEFAULT_NAME = "Local Store Manager";
+const DEFAULT_PASSWORD = "salesense-local-123";
 const DEFAULT_STORE_ID = "demo-store";
 
 function getRequiredEnv(name) {
@@ -35,7 +36,7 @@ async function findUserByEmail(supabase, email) {
   return data.users.find((user) => user.email?.toLowerCase() === email) ?? null;
 }
 
-async function upsertLocalSellerUser({ email, name, storeId }) {
+async function upsertLocalSellerUser({ email, name, password, storeId }) {
   const supabaseUrl = getRequiredEnv("NEXT_PUBLIC_SUPABASE_URL");
   const serviceRoleKey = getRequiredEnv("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -54,6 +55,7 @@ async function upsertLocalSellerUser({ email, name, storeId }) {
     },
     email,
     email_confirm: true,
+    password,
     user_metadata: {
       name,
       store_id: storeId,
@@ -98,6 +100,9 @@ async function main() {
       name: {
         type: "string",
       },
+      password: {
+        type: "string",
+      },
       "store-id": {
         type: "string",
       },
@@ -106,11 +111,13 @@ async function main() {
 
   const email = getStringValue(values.email, DEFAULT_EMAIL).toLowerCase();
   const name = getStringValue(values.name, DEFAULT_NAME);
+  const password = getStringValue(values.password, DEFAULT_PASSWORD);
   const storeId = getStringValue(values["store-id"], DEFAULT_STORE_ID);
 
   const { action, user } = await upsertLocalSellerUser({
     email,
     name,
+    password,
     storeId,
   });
 
@@ -123,8 +130,8 @@ async function main() {
         name,
         next_steps: [
           "Start the app with `pnpm dev`.",
-          "Open `/seller/sign-in` and request a magic link for this email.",
-          "Open local Mailpit at `http://127.0.0.1:54324` and click the sign-in link.",
+          "Open `/seller/sign-in` and sign in with the email you passed to the script.",
+          "Use the password you passed with `--password`, or the documented local default if you omitted it.",
         ],
         storeId,
       },

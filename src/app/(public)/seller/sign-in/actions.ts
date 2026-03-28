@@ -1,32 +1,17 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-function buildOrigin(host: string | null, origin: string | null) {
-  if (origin) {
-    return origin;
-  }
-
-  if (!host) {
-    return "http://localhost:3000";
-  }
-
-  const protocol = host.includes("localhost") || host.startsWith("127.0.0.1")
-    ? "http"
-    : "https";
-
-  return `${protocol}://${host}`;
-}
-
 export async function signInSellerAction(formData: FormData) {
   const emailValue = formData.get("email");
+  const passwordValue = formData.get("password");
   const nextPathValue = formData.get("next");
 
   const email =
     typeof emailValue === "string" ? emailValue.trim().toLowerCase() : "";
+  const password = typeof passwordValue === "string" ? passwordValue : "";
   const nextPath =
     typeof nextPathValue === "string" && nextPathValue.startsWith("/")
       ? nextPathValue
@@ -36,30 +21,23 @@ export async function signInSellerAction(formData: FormData) {
     redirect("/seller/sign-in?error=Email%20is%20required.");
   }
 
-  const headerStore = await headers();
-  const origin = buildOrigin(
-    headerStore.get("host"),
-    headerStore.get("origin"),
-  );
-  const redirectUrl = new URL("/auth/callback", origin);
-
-  redirectUrl.searchParams.set("next", nextPath);
+  if (!password) {
+    redirect(
+      `/seller/sign-in?error=${encodeURIComponent("Password is required.")}&next=${encodeURIComponent(nextPath)}`,
+    );
+  }
 
   const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.signInWithOtp({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
-    options: {
-      emailRedirectTo: redirectUrl.toString(),
-    },
+    password,
   });
 
   if (error) {
     redirect(
-      `/seller/sign-in?error=${encodeURIComponent(error.message)}&next=${encodeURIComponent(nextPath)}`,
+      `/seller/sign-in?error=${encodeURIComponent("Invalid email or password.")}&next=${encodeURIComponent(nextPath)}`,
     );
   }
 
-  redirect(
-    `/seller/sign-in?message=${encodeURIComponent("Check your email for the sign-in link.")}&next=${encodeURIComponent(nextPath)}`,
-  );
+  redirect(nextPath);
 }
