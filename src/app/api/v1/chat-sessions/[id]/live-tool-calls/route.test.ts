@@ -16,7 +16,7 @@ vi.mock("@/lib/chatTurns", () => ({
 
 const mockResolveSalesTurn = vi.mocked(resolveSalesTurn);
 
-describe("/api/v1/chat-sessions/[id]/messages", () => {
+describe("/api/v1/chat-sessions/[id]/live-tool-calls", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -27,9 +27,10 @@ describe("/api/v1/chat-sessions/[id]/messages", () => {
     );
 
     const response = await POST(
-      new Request("http://localhost/api/v1/chat-sessions/333/messages", {
+      new Request("http://localhost", {
         body: JSON.stringify({
-          content: "Tell me about the battery.",
+          callId: "call-1",
+          customerTranscript: "I mainly care about battery life.",
         }),
         headers: {
           "content-type": "application/json",
@@ -52,10 +53,42 @@ describe("/api/v1/chat-sessions/[id]/messages", () => {
     });
   });
 
-  it("returns the assistant reply and updated session activity", async () => {
+  it("returns 409 when the chat session is inactive", async () => {
+    mockResolveSalesTurn.mockRejectedValueOnce(
+      new ChatSessionInactiveError("Chat session is no longer active."),
+    );
+
+    const response = await POST(
+      new Request("http://localhost", {
+        body: JSON.stringify({
+          callId: "call-1",
+          customerTranscript: "I mainly care about battery life.",
+        }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+      {
+        params: Promise.resolve({
+          id: "33333333-3333-4333-8333-333333333333",
+        }),
+      },
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "conflict",
+        message: "Chat session is no longer active.",
+      },
+    });
+  });
+
+  it("returns the tool response payload and persisted chat messages", async () => {
     mockResolveSalesTurn.mockResolvedValueOnce({
       assistantMessage: {
-        content: "The iPhone Demo is a strong fit.",
+        content: "This demo is strong on battery and day-to-day speed.",
         createdAt: "2026-03-28T08:22:00.000Z",
         id: "44444444-4444-4444-8444-444444444444",
         role: "assistant",
@@ -81,7 +114,7 @@ describe("/api/v1/chat-sessions/[id]/messages", () => {
         storeId: "store-1",
       },
       userMessage: {
-        content: "Tell me about the battery.",
+        content: "I mainly care about battery life.",
         createdAt: "2026-03-28T08:21:30.000Z",
         id: "55555555-5555-4555-8555-555555555555",
         role: "user",
@@ -89,9 +122,10 @@ describe("/api/v1/chat-sessions/[id]/messages", () => {
     });
 
     const response = await POST(
-      new Request("http://localhost/api/v1/chat-sessions/333/messages", {
+      new Request("http://localhost", {
         body: JSON.stringify({
-          content: "Tell me about the battery.",
+          callId: "call-1",
+          customerTranscript: "I mainly care about battery life.",
         }),
         headers: {
           "content-type": "application/json",
@@ -108,15 +142,23 @@ describe("/api/v1/chat-sessions/[id]/messages", () => {
     expect(response.status).toBe(200);
     expect(mockResolveSalesTurn).toHaveBeenCalledWith(
       "33333333-3333-4333-8333-333333333333",
-      "Tell me about the battery.",
+      "I mainly care about battery life.",
     );
     await expect(response.json()).resolves.toEqual({
       data: {
         assistantMessage: {
-          content: "The iPhone Demo is a strong fit.",
+          content: "This demo is strong on battery and day-to-day speed.",
           createdAt: "2026-03-28T08:22:00.000Z",
           id: "44444444-4444-4444-8444-444444444444",
           role: "assistant",
+        },
+        functionResponse: {
+          id: "call-1",
+          name: "generate_sales_turn",
+          response: {
+            assistantMessage:
+              "This demo is strong on battery and day-to-day speed.",
+          },
         },
         grounding: {
           searchEntryPointRenderedContent: null,
@@ -138,37 +180,12 @@ describe("/api/v1/chat-sessions/[id]/messages", () => {
           status: "active",
           storeId: "store-1",
         },
-      },
-    });
-  });
-
-  it("returns 409 when the chat session is no longer active", async () => {
-    mockResolveSalesTurn.mockRejectedValueOnce(
-      new ChatSessionInactiveError("Chat session is no longer active."),
-    );
-
-    const response = await POST(
-      new Request("http://localhost/api/v1/chat-sessions/333/messages", {
-        body: JSON.stringify({
-          content: "Tell me about the battery.",
-        }),
-        headers: {
-          "content-type": "application/json",
+        userMessage: {
+          content: "I mainly care about battery life.",
+          createdAt: "2026-03-28T08:21:30.000Z",
+          id: "55555555-5555-4555-8555-555555555555",
+          role: "user",
         },
-        method: "POST",
-      }),
-      {
-        params: Promise.resolve({
-          id: "33333333-3333-4333-8333-333333333333",
-        }),
-      },
-    );
-
-    expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toEqual({
-      error: {
-        code: "conflict",
-        message: "Chat session is no longer active.",
       },
     });
   });

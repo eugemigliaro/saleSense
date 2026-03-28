@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
+export const DEFAULT_GEMINI_LIVE_MODEL = "gemini-3.1-flash-live-preview";
 
 const publicEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1).optional(),
@@ -25,6 +26,7 @@ const serviceRoleEnvSchema = z.object({
 
 const geminiEnvSchema = z.object({
   GEMINI_API_KEY: z.string().min(1),
+  GEMINI_LIVE_MODEL: z.string().trim().min(1).optional(),
   GEMINI_MODEL: z.string().trim().min(1).optional(),
 });
 
@@ -55,6 +57,7 @@ export function getSupabaseServiceRoleKey() {
 export function getGeminiApiKey() {
   return geminiEnvSchema.parse({
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    GEMINI_LIVE_MODEL: process.env.GEMINI_LIVE_MODEL,
     GEMINI_MODEL: process.env.GEMINI_MODEL,
   }).GEMINI_API_KEY;
 }
@@ -62,10 +65,21 @@ export function getGeminiApiKey() {
 export function getGeminiModel() {
   const env = geminiEnvSchema.parse({
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    GEMINI_LIVE_MODEL: process.env.GEMINI_LIVE_MODEL,
     GEMINI_MODEL: process.env.GEMINI_MODEL,
   });
 
   const requestedModel = env.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL;
 
   return requestedModel;
+}
+
+export function getGeminiLiveModel() {
+  const env = geminiEnvSchema.parse({
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    GEMINI_LIVE_MODEL: process.env.GEMINI_LIVE_MODEL,
+    GEMINI_MODEL: process.env.GEMINI_MODEL,
+  });
+
+  return env.GEMINI_LIVE_MODEL ?? DEFAULT_GEMINI_LIVE_MODEL;
 }

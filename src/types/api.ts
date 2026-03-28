@@ -66,3 +66,79 @@ export interface ProductImportDraftPayload {
   }>;
   warnings: string[];
 }
+
+export interface GeminiLiveFunctionResponse {
+  id: string;
+  name: string;
+  response: {
+    assistantMessage: string;
+  };
+}
+
+export interface GeminiLiveFunctionDeclaration {
+  description: string;
+  name: string;
+  parameters: {
+    additionalProperties: boolean;
+    properties: Record<
+      string,
+      {
+        description?: string;
+        type: "STRING";
+      }
+    >;
+    required: string[];
+    type: "OBJECT";
+  };
+}
+
+export interface GeminiLiveConfigPayload {
+  generationConfig: {
+    maxOutputTokens: number;
+  };
+  inputAudioTranscription: Record<string, never>;
+  outputAudioTranscription: Record<string, never>;
+  responseModalities: ["AUDIO"];
+  systemInstruction: string;
+  temperature: number;
+  thinkingConfig: {
+    thinkingLevel: "MINIMAL";
+  };
+  tools: Array<{
+    functionDeclarations: GeminiLiveFunctionDeclaration[];
+  }>;
+}
+
+export interface ChatSessionLiveTokenPayload {
+  expiresAt: string;
+  liveConfig: GeminiLiveConfigPayload;
+  model: string;
+  opener: string;
+  token: string;
+}
+
+export interface ChatSessionLiveToolCallPayload {
+  assistantMessage: {
+    content: string;
+    createdAt: string;
+    id: string;
+    role: "assistant";
+  };
+  functionResponse: GeminiLiveFunctionResponse;
+  grounding: ChatMessageGrounding | null;
+  session: {
+    deviceSessionId: string;
+    id: string;
+    lastActivityAt: string;
+    productId: string;
+    startedAt: string;
+    status: "active" | "completed";
+    storeId: string;
+  };
+  userMessage: {
+    content: string;
+    createdAt: string;
+    id: string;
+    role: "user";
+  };
+}

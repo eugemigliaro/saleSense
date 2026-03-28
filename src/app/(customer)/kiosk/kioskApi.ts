@@ -4,6 +4,8 @@ import type {
   ChatSessionCreatePayload,
   ChatSessionMessagePayload,
   CreateLeadPayload,
+  KioskLiveTokenResult,
+  KioskLiveToolCallResult,
   LiveChatMessageResult,
   LiveChatSessionResult,
 } from "./kioskTypes";
@@ -66,6 +68,55 @@ export async function sendKioskChatMessage(
     assistantMessage: payload.data.assistantMessage,
     grounding: payload.data.grounding,
   } satisfies LiveChatMessageResult;
+}
+
+export async function createKioskLiveToken(chatSessionId: string) {
+  const response = await fetch(`/api/v1/chat-sessions/${chatSessionId}/live-token`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const errorPayload = await readJsonResponse<ApiErrorResponse>(response);
+    throw new Error(
+      errorPayload.error.message || "Failed to start voice session.",
+    );
+  }
+
+  const payload =
+    await readJsonResponse<ApiSuccessResponse<KioskLiveTokenResult>>(response);
+
+  return payload.data satisfies KioskLiveTokenResult;
+}
+
+export async function sendKioskLiveToolCall(
+  chatSessionId: string,
+  input: {
+    callId: string;
+    customerTranscript: string;
+  },
+) {
+  const response = await fetch(
+    `/api/v1/chat-sessions/${chatSessionId}/live-tool-calls`,
+    {
+      body: JSON.stringify(input),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    },
+  );
+
+  if (!response.ok) {
+    const errorPayload = await readJsonResponse<ApiErrorResponse>(response);
+    throw new Error(
+      errorPayload.error.message || "Failed to resolve voice turn.",
+    );
+  }
+
+  const payload =
+    await readJsonResponse<ApiSuccessResponse<KioskLiveToolCallResult>>(response);
+
+  return payload.data satisfies KioskLiveToolCallResult;
 }
 
 export async function createKioskLead(payload: CreateLeadPayload) {

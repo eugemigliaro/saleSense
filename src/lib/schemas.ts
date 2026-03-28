@@ -15,6 +15,7 @@ const LEAD_PHONE_MAX_LENGTH = 50;
 const LEAD_SUMMARY_MAX_LENGTH = 4_000;
 const LEAD_SHORT_TEXT_MAX_LENGTH = 200;
 const CHAT_MESSAGE_MAX_LENGTH = 2_000;
+const CHAT_TOOL_CALL_ID_MAX_LENGTH = 200;
 
 function requiredText(label: string, maxLength: number) {
   return z
@@ -205,6 +206,13 @@ export const chatSessionIdParamsSchema = z.object({
 
 export const sendChatMessageSchema = sendChatMessageBodySchema;
 
+export const createLiveToolCallSchema = z
+  .object({
+    callId: requiredText("Call id", CHAT_TOOL_CALL_ID_MAX_LENGTH),
+    customerTranscript: requiredText("Customer transcript", CHAT_MESSAGE_MAX_LENGTH),
+  })
+  .strict();
+
 export const createProductImportDraftSchema = z
   .object({
     sourceUrls: sourceUrlList(1, PRODUCT_IMPORT_SOURCE_URL_MAX_ITEMS),
@@ -234,6 +242,11 @@ export interface SendChatMessageInput {
   content: string;
 }
 
+export interface CreateLiveToolCallInput {
+  callId: string;
+  customerTranscript: string;
+}
+
 export function normalizeCreateLeadInput(
   value: z.infer<typeof createLeadSchema>,
 ): CreateLeadInput {
@@ -254,5 +267,14 @@ export function normalizeSendChatMessageInput(
 ): SendChatMessageInput {
   return {
     content: value.content,
+  };
+}
+
+export function normalizeCreateLiveToolCallInput(
+  value: z.infer<typeof createLiveToolCallSchema>,
+): CreateLiveToolCallInput {
+  return {
+    callId: value.callId,
+    customerTranscript: value.customerTranscript,
   };
 }

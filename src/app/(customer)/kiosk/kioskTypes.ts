@@ -1,7 +1,17 @@
-import type { ChatMessageGrounding } from "@/types/api";
+import type {
+  ChatMessageGrounding,
+  ChatSessionLiveTokenPayload,
+  ChatSessionLiveToolCallPayload,
+} from "@/types/api";
 import type { ChatMessage } from "@/types/domain";
 
 export type KioskState = "idle" | "chat" | "lead" | "thanks";
+export type VoiceSessionState =
+  | "idle"
+  | "connecting"
+  | "assistant-speaking"
+  | "customer-listening"
+  | "fallback";
 
 export interface KioskExperienceProps {
   brandName: string;
@@ -44,3 +54,6 @@ export interface LiveChatMessageResult {
   assistantMessage: ChatMessage;
   grounding: ChatMessageGrounding | null;
 }
+
+export type KioskLiveTokenResult = ChatSessionLiveTokenPayload;
+export type KioskLiveToolCallResult = ChatSessionLiveToolCallPayload;

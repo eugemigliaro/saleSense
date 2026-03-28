@@ -52,6 +52,7 @@ export default function KioskExperience({
           onEndSession={experience.transitionToLeadCapture}
           onOpenGroundingForMessage={experience.openGroundingForMessage}
           onSendMessage={experience.sendMessage}
+          voiceState={experience.voiceState}
         />
       ) : null}
 

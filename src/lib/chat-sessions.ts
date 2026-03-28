@@ -213,6 +213,23 @@ export async function listChatMessagesBySessionId(
   return asChatMessageRows(data).reverse().map(mapChatMessageRow);
 }
 
+export async function getFirstChatMessageBySessionId(chatSessionId: string) {
+  const supabase = createAdminSupabaseClient();
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select(CHAT_MESSAGE_COLUMNS)
+    .eq("chat_session_id", chatSessionId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load first chat message: ${error.message}`);
+  }
+
+  return data ? mapChatMessageRow(asChatMessageRow(data)) : null;
+}
+
 export async function touchChatSession(chatSessionId: string) {
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase

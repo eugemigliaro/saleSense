@@ -81,7 +81,9 @@ export function KioskIdleView({
             <div className="kiosk-pulse-ring absolute inset-0 rounded-full border-2 border-primary" />
           </div>
 
-          <p className="kiosk-muted text-lg font-light">Tap anywhere to start</p>
+          <p className="kiosk-muted text-lg font-light">
+            Tap anywhere to start a voice-guided demo
+          </p>
         </motion.div>
       </div>
     </motion.div>

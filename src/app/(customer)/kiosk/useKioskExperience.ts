@@ -5,9 +5,14 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { ChatMessageGrounding } from "@/types/api";
 import type { ChatMessage } from "@/types/domain";
 
-import { createKioskLead, createKioskChatSession, sendKioskChatMessage } from "./kioskApi";
+import {
+  createKioskChatSession,
+  createKioskLead,
+  sendKioskChatMessage,
+} from "./kioskApi";
 import { buildMockReply, buildPreviewGreeting, createMessage } from "./kioskHelpers";
 import type { KioskState, LiveChatSessionResult } from "./kioskTypes";
+import { useLiveVoiceSession } from "./useLiveVoiceSession";
 
 interface UseKioskExperienceInput {
   brandName: string;
@@ -15,6 +20,21 @@ interface UseKioskExperienceInput {
   deviceSessionId: string | null;
   productId: string | null;
   productName: string;
+}
+
+function upsertGrounding(
+  currentGrounding: Record<string, ChatMessageGrounding>,
+  assistantMessageId: string,
+  grounding: ChatMessageGrounding | null,
+) {
+  if (!grounding || grounding.sources.length === 0) {
+    return currentGrounding;
+  }
+
+  return {
+    ...currentGrounding,
+    [assistantMessageId]: grounding,
+  };
 }
 
 export function useKioskExperience({
@@ -46,12 +66,57 @@ export function useKioskExperience({
   );
   const typingTimeoutRef = useRef<number | null>(null);
 
+  function handleResolvedVoiceTurn(
+    result: {
+      assistantMessage: ChatMessage;
+      grounding: ChatMessageGrounding | null;
+      userMessage: ChatMessage;
+    },
+    pendingUserMessageId: string | null,
+  ) {
+    setChatError(null);
+    setMessages((currentMessages) => {
+      const hasPendingMessage =
+        pendingUserMessageId !== null &&
+        currentMessages.some((message) => message.id === pendingUserMessageId);
+
+      const nextMessages =
+        hasPendingMessage && pendingUserMessageId
+          ? currentMessages.map((message) =>
+              message.id === pendingUserMessageId ? result.userMessage : message,
+            )
+          : [...currentMessages, result.userMessage];
+
+      return [...nextMessages, result.assistantMessage];
+    });
+    setGroundingByMessageId((currentGrounding) =>
+      upsertGrounding(
+        currentGrounding,
+        result.assistantMessage.id,
+        result.grounding,
+      ),
+    );
+    setIsTyping(false);
+  }
+
+  function handleVoiceError(message: string) {
+    setChatError(message);
+    setIsTyping(false);
+  }
+
+  const voiceSession = useLiveVoiceSession({
+    chatSessionId,
+    onResolvedTurn: handleResolvedVoiceTurn,
+    onVoiceError: handleVoiceError,
+  });
+
   function resetExperience() {
     if (typingTimeoutRef.current !== null) {
       window.clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
     }
 
+    void voiceSession.disconnect();
     setCustomerEmail("");
     setCustomerName("");
     setCustomerPhone("");
@@ -85,11 +150,17 @@ export function useKioskExperience({
     };
   }, [state]);
 
+  const handleUnmount = useEffectEvent(() => {
+    if (typingTimeoutRef.current !== null) {
+      window.clearTimeout(typingTimeoutRef.current);
+    }
+
+    void voiceSession.disconnect();
+  });
+
   useEffect(() => {
     return () => {
-      if (typingTimeoutRef.current !== null) {
-        window.clearTimeout(typingTimeoutRef.current);
-      }
+      handleUnmount();
     };
   }, []);
 
@@ -137,11 +208,16 @@ export function useKioskExperience({
 
     try {
       const liveChatSession = await ensureServerChatSession();
+      const activeLiveChatSessionId = liveChatSession?.sessionId ?? chatSessionId;
 
       if (liveChatSession?.initialMessage) {
         setMessages([liveChatSession.initialMessage]);
-        return;
+      } else if (messages.length === 0) {
+        setMessages([createMessage("assistant", buildPreviewGreeting(productName, category))]);
       }
+
+      await voiceSession.connect(activeLiveChatSessionId);
+      return;
     } catch (error) {
       setChatError(
         error instanceof Error
@@ -162,10 +238,7 @@ export function useKioskExperience({
       return;
     }
 
-    const nextMessages = [...messages, createMessage("user", normalizedContent)];
-
     setChatError(null);
-    setMessages(nextMessages);
     setDraft("");
     setIsTyping(true);
     let previewReplyScheduled = false;
@@ -180,6 +253,37 @@ export function useKioskExperience({
           : await ensureServerChatSession();
       const activeChatSessionId = liveChatSession?.sessionId ?? null;
 
+      if (activeChatSessionId && voiceSession.isVoiceEnabled) {
+        const pendingMessageId = `pending-${crypto.randomUUID()}`;
+
+        setMessages((currentMessages) => [
+          ...currentMessages,
+          {
+            content: normalizedContent,
+            createdAt: new Date().toISOString(),
+            id: pendingMessageId,
+            role: "user",
+          },
+        ]);
+        try {
+          await voiceSession.sendTextTurn(normalizedContent, pendingMessageId);
+          return;
+        } catch (error) {
+          setMessages((currentMessages) =>
+            currentMessages.filter((message) => message.id !== pendingMessageId),
+          );
+          setChatError(
+            error instanceof Error
+              ? `${error.message} Switched back to typed chat.`
+              : "Voice is unavailable right now. Switched back to typed chat.",
+          );
+        }
+      }
+
+      const nextMessages = [...messages, createMessage("user", normalizedContent)];
+
+      setMessages(nextMessages);
+
       if (activeChatSessionId) {
         const response = await sendKioskChatMessage(
           activeChatSessionId,
@@ -190,16 +294,13 @@ export function useKioskExperience({
           ...currentMessages,
           response.assistantMessage,
         ]);
-        setGroundingByMessageId((currentGrounding) => {
-          if (!response.grounding || response.grounding.sources.length === 0) {
-            return currentGrounding;
-          }
-
-          return {
-            ...currentGrounding,
-            [response.assistantMessage.id]: response.grounding,
-          };
-        });
+        setGroundingByMessageId((currentGrounding) =>
+          upsertGrounding(
+            currentGrounding,
+            response.assistantMessage.id,
+            response.grounding,
+          ),
+        );
       } else {
         previewReplyScheduled = true;
         typingTimeoutRef.current = window.setTimeout(() => {
@@ -267,28 +368,32 @@ export function useKioskExperience({
   }
 
   return {
-    chatError,
-    customerEmail,
-    customerName,
-    customerPhone,
-    draft,
-    isLiveSession: Boolean(deviceSessionId),
-    isSubmittingLead,
-    isTyping,
-    leadError,
-    messages,
-    groundingByMessageId,
-    activeGroundingMessageId,
-    resetExperience,
     activeGrounding:
       activeGroundingMessageId === null
         ? null
         : groundingByMessageId[activeGroundingMessageId] ?? null,
+    activeGroundingMessageId,
+    chatError,
     closeGrounding: () => setActiveGroundingMessageId(null),
+    customerEmail,
+    customerName,
+    customerPhone,
+    draft,
+    groundingByMessageId,
+    isLiveSession: Boolean(deviceSessionId),
+    isSubmittingLead,
+    isTyping:
+      isTyping ||
+      voiceSession.voiceState === "assistant-speaking" ||
+      voiceSession.voiceState === "connecting",
+    leadError,
+    messages,
     openGroundingForMessage: (messageId: string) =>
       setActiveGroundingMessageId((currentMessageId) =>
         currentMessageId === messageId ? null : messageId,
       ),
+    resetExperience,
+    sendMessage,
     setCustomerEmail,
     setCustomerName,
     setCustomerPhone,
@@ -296,7 +401,11 @@ export function useKioskExperience({
     startExperience,
     state,
     submitLead,
-    transitionToLeadCapture: () => setState("lead"),
-    sendMessage,
+    transitionToLeadCapture: async () => {
+      await voiceSession.disconnect();
+      setState("lead");
+    },
+    voiceError: voiceSession.voiceError,
+    voiceState: voiceSession.voiceState,
   };
 }

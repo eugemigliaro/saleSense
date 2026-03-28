@@ -4,15 +4,20 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Bot,
   ExternalLink,
+  Mic,
+  MicOff,
   Search,
   Send,
   User,
+  Volume2,
   X,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import type { ChatMessageGrounding } from "@/types/api";
 import type { ChatMessage } from "@/types/domain";
+
+import type { VoiceSessionState } from "./kioskTypes";
 
 interface KioskChatViewProps {
   activeGrounding: ChatMessageGrounding | null;
@@ -27,10 +32,41 @@ interface KioskChatViewProps {
   onEndSession: () => void;
   onOpenGroundingForMessage: (messageId: string) => void;
   onSendMessage: (content: string) => void | Promise<void>;
+  voiceState: VoiceSessionState;
 }
 
 function stripHtml(value: string) {
   return value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function getVoiceStatus(voiceState: VoiceSessionState) {
+  switch (voiceState) {
+    case "connecting":
+      return {
+        icon: Volume2,
+        label: "Starting voice",
+      };
+    case "assistant-speaking":
+      return {
+        icon: Volume2,
+        label: "Assistant speaking",
+      };
+    case "customer-listening":
+      return {
+        icon: Mic,
+        label: "Listening now",
+      };
+    case "fallback":
+      return {
+        icon: MicOff,
+        label: "Typed fallback",
+      };
+    default:
+      return {
+        icon: MicOff,
+        label: "Voice idle",
+      };
+  }
 }
 
 export function KioskChatView({
@@ -46,9 +82,12 @@ export function KioskChatView({
   onEndSession,
   onOpenGroundingForMessage,
   onSendMessage,
+  voiceState,
 }: KioskChatViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const voiceStatus = getVoiceStatus(voiceState);
+  const VoiceStatusIcon = voiceStatus.icon;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -233,6 +272,17 @@ export function KioskChatView({
                   <Send className="h-5 w-5" />
                 </button>
               </form>
+
+              <div className="mt-3 flex items-center justify-between gap-3 text-xs text-white/45">
+                <p>
+                  Speak naturally or type below. Voice falls back to typed chat if
+                  the mic is unavailable.
+                </p>
+                <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                  <VoiceStatusIcon className="h-3.5 w-3.5" />
+                  {voiceStatus.label}
+                </span>
+              </div>
             </div>
           </div>
         </div>
