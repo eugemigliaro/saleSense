@@ -233,7 +233,7 @@ export function KioskChatView({
                     }}
                     placeholder="Type your message..."
                     rows={1}
-                    className="min-h-12 max-h-32 w-full resize-none rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-[15px] leading-6 text-white placeholder:text-white/35 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-400/50"
+                    className="min-h-12 max-h-32 w-full resize-none overflow-y-auto rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-[15px] leading-6 text-white placeholder:text-white/35 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-400/50"
                   />
                   {draft.length > 0 ? (
                     <div className="absolute bottom-2 right-3 text-xs text-white/35">

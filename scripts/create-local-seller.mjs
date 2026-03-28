@@ -81,6 +81,46 @@ Google's AI-forward premium phone demo.
   },
 ];
 
+function formatSupabaseError(error) {
+  if (!error) {
+    return "Unknown Supabase error.";
+  }
+
+  const parts = [];
+
+  if (typeof error.message === "string" && error.message.trim().length > 0) {
+    parts.push(error.message.trim());
+  }
+
+  if (typeof error.code === "string" && error.code.trim().length > 0) {
+    parts.push(`code=${error.code.trim()}`);
+  }
+
+  if (typeof error.status === "number" && Number.isFinite(error.status)) {
+    parts.push(`status=${error.status}`);
+  }
+
+  if (error.cause && typeof error.cause === "object") {
+    const cause = error.cause;
+
+    if (typeof cause.message === "string" && cause.message.trim().length > 0) {
+      parts.push(`cause=${cause.message.trim()}`);
+    } else if (typeof cause.code === "string" && cause.code.trim().length > 0) {
+      parts.push(`causeCode=${cause.code.trim()}`);
+    }
+  }
+
+  if (parts.length === 0) {
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return String(error);
+    }
+  }
+
+  return parts.join(" | ");
+}
+
 function getRequiredEnv(name) {
   const value = process.env[name];
 
@@ -104,7 +144,7 @@ async function findUserByEmail(supabase, email) {
   });
 
   if (error) {
-    throw new Error(`Failed to list users: ${error.message}`);
+    throw new Error(`Failed to list users: ${formatSupabaseError(error)}`);
   }
 
   return data.users.find((user) => user.email?.toLowerCase() === email) ?? null;
@@ -143,7 +183,9 @@ async function upsertLocalSellerUser({ email, name, password, storeId }) {
     );
 
     if (error) {
-      throw new Error(`Failed to update seller user: ${error.message}`);
+      throw new Error(
+        `Failed to update seller user: ${formatSupabaseError(error)}`,
+      );
     }
 
     return {
@@ -155,7 +197,7 @@ async function upsertLocalSellerUser({ email, name, password, storeId }) {
   const { data, error } = await supabase.auth.admin.createUser(payload);
 
   if (error) {
-    throw new Error(`Failed to create seller user: ${error.message}`);
+    throw new Error(`Failed to create seller user: ${formatSupabaseError(error)}`);
   }
 
   return {
@@ -171,7 +213,9 @@ async function seedDemoProducts(supabase, storeId) {
     .eq("store_id", storeId);
 
   if (error) {
-    throw new Error(`Failed to load existing demo products: ${error.message}`);
+    throw new Error(
+      `Failed to load existing demo products: ${formatSupabaseError(error)}`,
+    );
   }
 
   const existingProducts = new Map(
@@ -196,7 +240,7 @@ async function seedDemoProducts(supabase, storeId) {
 
       if (updateError) {
         throw new Error(
-          `Failed to update demo product ${product.name}: ${updateError.message}`,
+          `Failed to update demo product ${product.name}: ${formatSupabaseError(updateError)}`,
         );
       }
 
@@ -215,7 +259,7 @@ async function seedDemoProducts(supabase, storeId) {
 
     if (insertError) {
       throw new Error(
-        `Failed to create demo product ${product.name}: ${insertError.message}`,
+        `Failed to create demo product ${product.name}: ${formatSupabaseError(insertError)}`,
       );
     }
   }
@@ -225,7 +269,7 @@ async function resetStoreProducts(supabase, storeId) {
   const { error } = await supabase.from("products").delete().eq("store_id", storeId);
 
   if (error) {
-    throw new Error(`Failed to reset store products: ${error.message}`);
+    throw new Error(`Failed to reset store products: ${formatSupabaseError(error)}`);
   }
 }
 
