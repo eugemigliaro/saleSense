@@ -56,6 +56,7 @@ describe("/api/v1/products", () => {
       id: "11111111-1111-4111-8111-111111111111",
       idleMediaUrl: "https://example.com/idle.mp4",
       name: "iPhone Demo",
+      sourceUrls: [],
       storeId: "store-1",
       updatedAt: "2026-03-28T07:00:00.000Z",
     });
@@ -85,6 +86,7 @@ describe("/api/v1/products", () => {
       detailsMarkdown: "Detailed product markdown.",
       idleMediaUrl: "https://example.com/idle.mp4",
       name: "iPhone Demo",
+      sourceUrls: [],
     });
   });
 });

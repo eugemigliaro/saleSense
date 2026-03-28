@@ -191,6 +191,7 @@ export interface Database {
           id?: string;
           idle_media_url: string;
           name: string;
+          source_urls?: string[];
           store_id: string;
           updated_at?: string;
         };
@@ -204,6 +205,7 @@ export interface Database {
           id: string;
           idle_media_url: string;
           name: string;
+          source_urls: string[];
           store_id: string;
           updated_at: string;
         };
@@ -216,6 +218,7 @@ export interface Database {
           id?: string;
           idle_media_url?: string;
           name?: string;
+          source_urls?: string[];
           store_id?: string;
           updated_at?: string;
         };

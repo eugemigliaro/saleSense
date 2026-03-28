@@ -1,7 +1,7 @@
 import type { ChatMessage } from "@/types/domain";
 
 export function buildPreviewGreeting(productName: string, category: string) {
-  return `Hi there! I'm your virtual sales assistant for the ${productName}. I can tell you all about it, help compare it with other options, or answer any questions about ${category.toLowerCase()} choices. What brings you in today?`;
+  return `Hi, what are you hoping to improve in a ${category.toLowerCase()} like ${productName}?`;
 }
 
 export function buildMockReply(

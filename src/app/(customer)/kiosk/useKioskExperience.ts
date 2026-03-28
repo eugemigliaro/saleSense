@@ -2,10 +2,12 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
+import type { ChatMessageGrounding } from "@/types/api";
+import type { ChatMessage } from "@/types/domain";
+
 import { createKioskLead, createKioskChatSession, sendKioskChatMessage } from "./kioskApi";
 import { buildMockReply, buildPreviewGreeting, createMessage } from "./kioskHelpers";
 import type { KioskState, LiveChatSessionResult } from "./kioskTypes";
-import type { ChatMessage } from "@/types/domain";
 
 interface UseKioskExperienceInput {
   brandName: string;
@@ -24,6 +26,12 @@ export function useKioskExperience({
 }: UseKioskExperienceInput) {
   const [state, setState] = useState<KioskState>("idle");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [groundingByMessageId, setGroundingByMessageId] = useState<
+    Record<string, ChatMessageGrounding>
+  >({});
+  const [activeGroundingMessageId, setActiveGroundingMessageId] = useState<
+    string | null
+  >(null);
   const [draft, setDraft] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
@@ -51,6 +59,8 @@ export function useKioskExperience({
     setLeadError(null);
     setChatSessionId(null);
     chatSessionRequestRef.current = null;
+    setGroundingByMessageId({});
+    setActiveGroundingMessageId(null);
     setDraft("");
     setIsTyping(false);
     setMessages([]);
@@ -113,6 +123,8 @@ export function useKioskExperience({
     setChatError(null);
     setLeadError(null);
     setMessages([]);
+    setGroundingByMessageId({});
+    setActiveGroundingMessageId(null);
     setDraft("");
     setState("chat");
 
@@ -169,12 +181,25 @@ export function useKioskExperience({
       const activeChatSessionId = liveChatSession?.sessionId ?? null;
 
       if (activeChatSessionId) {
-        const assistantMessage = await sendKioskChatMessage(
+        const response = await sendKioskChatMessage(
           activeChatSessionId,
           normalizedContent,
         );
 
-        setMessages((currentMessages) => [...currentMessages, assistantMessage]);
+        setMessages((currentMessages) => [
+          ...currentMessages,
+          response.assistantMessage,
+        ]);
+        setGroundingByMessageId((currentGrounding) => {
+          if (!response.grounding || response.grounding.sources.length === 0) {
+            return currentGrounding;
+          }
+
+          return {
+            ...currentGrounding,
+            [response.assistantMessage.id]: response.grounding,
+          };
+        });
       } else {
         previewReplyScheduled = true;
         typingTimeoutRef.current = window.setTimeout(() => {
@@ -252,7 +277,18 @@ export function useKioskExperience({
     isTyping,
     leadError,
     messages,
+    groundingByMessageId,
+    activeGroundingMessageId,
     resetExperience,
+    activeGrounding:
+      activeGroundingMessageId === null
+        ? null
+        : groundingByMessageId[activeGroundingMessageId] ?? null,
+    closeGrounding: () => setActiveGroundingMessageId(null),
+    openGroundingForMessage: (messageId: string) =>
+      setActiveGroundingMessageId((currentMessageId) =>
+        currentMessageId === messageId ? null : messageId,
+      ),
     setCustomerEmail,
     setCustomerName,
     setCustomerPhone,

@@ -7,6 +7,7 @@ export interface ProductFormState {
   detailsMarkdown: string;
   idleMediaUrl: string;
   name: string;
+  sourceUrls: string[];
 }
 
 export const EMPTY_PRODUCT_FORM: ProductFormState = {
@@ -16,6 +17,7 @@ export const EMPTY_PRODUCT_FORM: ProductFormState = {
   detailsMarkdown: "",
   idleMediaUrl: "",
   name: "",
+  sourceUrls: [],
 };
 
 export function toProductFormState(product: Product): ProductFormState {
@@ -26,5 +28,6 @@ export function toProductFormState(product: Product): ProductFormState {
     detailsMarkdown: product.detailsMarkdown,
     idleMediaUrl: product.idleMediaUrl,
     name: product.name,
+    sourceUrls: product.sourceUrls,
   };
 }

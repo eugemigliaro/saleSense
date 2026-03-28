@@ -4,112 +4,10 @@ import { Globe, Sparkles } from "lucide-react";
 import { useState } from "react";
 
 import type { ProductFormState } from "./sellerWorkspaceUtils";
+import { importProductDraftRequest } from "./workspaceApi";
 
 interface ProductAiAutocompleteProps {
   onApply: (nextState: ProductFormState) => void;
-}
-
-function slugToTitle(value: string) {
-  return value
-    .split(/[-_]+/)
-    .filter(Boolean)
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(" ");
-}
-
-function buildGenericProductName(url: URL) {
-  const pathSegments = url.pathname.split("/").filter(Boolean);
-  const lastSegment = pathSegments.at(-1);
-
-  if (lastSegment) {
-    const normalized = slugToTitle(lastSegment);
-
-    if (normalized.length > 0) {
-      return normalized;
-    }
-  }
-
-  return `${slugToTitle(url.hostname.split(".")[0] ?? "Flagship")} Product`;
-}
-
-function buildAutocompleteDraft(sourceUrl: string): ProductFormState {
-  const url = new URL(sourceUrl);
-  const normalized = `${url.hostname}${url.pathname}`.toLowerCase();
-  const genericProductName = buildGenericProductName(url);
-
-  if (normalized.includes("iphone")) {
-    return {
-      brand: "Apple",
-      category: "Smartphones",
-      comparisonSnippetMarkdown:
-        "Premium iPhone positioning with strong camera, performance, and ecosystem advantages for quick in-store comparison.",
-      detailsMarkdown: `# iPhone 16 Pro Max
-
-Apple's premium flagship for customers who want the best iPhone camera system, large display, and polished ecosystem experience.
-
-- 6.9-inch Super Retina XDR display with ProMotion
-- Titanium build with premium in-hand feel
-- High-end camera system for photo and video demos
-- Strong performance and day-long battery positioning`,
-      idleMediaUrl: sourceUrl,
-      name: "iPhone 16 Pro Max",
-    };
-  }
-
-  if (normalized.includes("galaxy") || normalized.includes("samsung")) {
-    return {
-      brand: "Samsung",
-      category: "Smartphones",
-      comparisonSnippetMarkdown:
-        "Flagship Galaxy positioning with premium display, camera, and productivity-oriented Android experience.",
-      detailsMarkdown: `# Samsung Galaxy S25 Ultra
-
-Samsung's top-tier Galaxy device for customers who want a large display, standout camera specs, and premium Android flexibility.
-
-- Large high-resolution AMOLED display
-- Premium camera setup for zoom and detail demos
-- Fast flagship chipset performance
-- Productivity-oriented premium Android positioning`,
-      idleMediaUrl: sourceUrl,
-      name: "Samsung Galaxy S25 Ultra",
-    };
-  }
-
-  if (normalized.includes("pixel") || normalized.includes("google")) {
-    return {
-      brand: "Google",
-      category: "Smartphones",
-      comparisonSnippetMarkdown:
-        "Camera-first Android flagship with Gemini, clean software, and premium day-to-day usability.",
-      detailsMarkdown: `# Google Pixel 9 Pro
-
-Google's premium phone for customers who want a clean Android experience, strong photography, and Gemini-native assistance.
-
-- Bright high-end display with smooth scrolling
-- Strong photo quality for in-store camera demos
-- Gemini and Google AI positioning built into the experience
-- Premium build with polished software feel`,
-      idleMediaUrl: sourceUrl,
-      name: "Google Pixel 9 Pro",
-    };
-  }
-
-  return {
-    brand: slugToTitle(url.hostname.split(".")[0] ?? "Brand"),
-    category: "Consumer electronics",
-    comparisonSnippetMarkdown:
-      "Frontend-only AI autocomplete preview. Replace this with backend scraping and AI extraction when the API is ready.",
-    detailsMarkdown: `# ${genericProductName}
-
-Autocompleted from ${url.hostname} in frontend preview mode.
-
-- Primary product details should be scraped from the source page
-- Key selling points should be condensed for in-store conversations
-- Comparison positioning should stay grounded in seller-provided data
-- Idle media should later be chosen from the product page assets`,
-    idleMediaUrl: sourceUrl,
-    name: genericProductName,
-  };
 }
 
 export function ProductAiAutocomplete({
@@ -131,14 +29,21 @@ export function ProductAiAutocomplete({
 
       new URL(normalizedUrl);
       setIsAutocompleting(true);
+      const importDraft = await importProductDraftRequest([normalizedUrl]);
 
-      await new Promise((resolve) => {
-        window.setTimeout(resolve, 1100);
+      onApply({
+        brand: importDraft.draft.brand,
+        category: importDraft.draft.category,
+        comparisonSnippetMarkdown: importDraft.draft.comparisonSnippetMarkdown,
+        detailsMarkdown: importDraft.draft.detailsMarkdown,
+        idleMediaUrl: importDraft.draft.idleMediaUrl ?? "",
+        name: importDraft.draft.name,
+        sourceUrls: importDraft.draft.sourceUrls,
       });
-
-      onApply(buildAutocompleteDraft(normalizedUrl));
       setFeedbackMessage(
-        "Frontend preview filled the form. Backend scraping and AI extraction can replace this later.",
+        importDraft.warnings.length > 0
+          ? importDraft.warnings.join(" ")
+          : "AI import completed. Review the generated fields before saving.",
       );
     } catch (error) {
       setFeedbackMessage(
@@ -162,7 +67,7 @@ export function ProductAiAutocomplete({
             </h2>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
               Paste the product page URL from the brand or seller site and use
-              frontend preview mode to prefill the form.
+              the live backend import flow to prefill the form.
             </p>
           </div>
         </div>
@@ -190,8 +95,8 @@ export function ProductAiAutocomplete({
         </div>
 
         <p className="text-xs leading-5 text-muted-foreground">
-          This is frontend-only for now. It simulates scraped AI output so the
-          product form flow can be designed before backend ingestion exists.
+          This uses the real product-import endpoint and keeps the generated
+          result editable before you save it.
         </p>
 
         {feedbackMessage ? (

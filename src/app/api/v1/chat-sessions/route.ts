@@ -6,12 +6,12 @@ import {
   jsonValidationError,
   readJsonBody,
 } from "@/lib/api-request";
+import { generateChatOpener } from "@/lib/ai/chatOpener";
 import { jsonSuccess } from "@/lib/api-response";
 import {
   appendChatMessage,
   createChatSessionForDeviceSession,
 } from "@/lib/chat-sessions";
-import { buildChatGreeting } from "@/lib/mock-chat";
 import { createChatSessionSchema } from "@/lib/schemas";
 
 export async function POST(request: Request) {
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     const initialMessage = await appendChatMessage(
       context.session.id,
       "assistant",
-      buildChatGreeting(context.product).content,
+      await generateChatOpener(context.product),
     );
 
     return jsonSuccess(

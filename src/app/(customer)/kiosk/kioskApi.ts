@@ -4,6 +4,7 @@ import type {
   ChatSessionCreatePayload,
   ChatSessionMessagePayload,
   CreateLeadPayload,
+  LiveChatMessageResult,
   LiveChatSessionResult,
 } from "./kioskTypes";
 
@@ -61,7 +62,10 @@ export async function sendKioskChatMessage(
   const payload =
     await readJsonResponse<ApiSuccessResponse<ChatSessionMessagePayload>>(response);
 
-  return payload.data.assistantMessage;
+  return {
+    assistantMessage: payload.data.assistantMessage,
+    grounding: payload.data.grounding,
+  } satisfies LiveChatMessageResult;
 }
 
 export async function createKioskLead(payload: CreateLeadPayload) {

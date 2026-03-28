@@ -78,6 +78,7 @@ describe("/api/v1/chat-sessions/[id]/messages", () => {
         id: "11111111-1111-4111-8111-111111111111",
         idleMediaUrl: "https://example.com/idle.mp4",
         name: "iPhone Demo",
+        sourceUrls: [],
         storeId: "store-1",
         updatedAt: "2026-03-28T08:20:00.000Z",
       },
@@ -119,12 +120,25 @@ describe("/api/v1/chat-sessions/[id]/messages", () => {
       },
     ]);
     mockGenerateSalesAssistantReply.mockResolvedValue({
-      confidence: "high",
-      language: "en",
-      message: "The iPhone Demo is a strong fit.",
-      objective: "pitch",
-      recommendedAlternativeProductName: null,
-      suggestedTryout: "Try the camera controls.",
+      draft: {
+        confidence: "high",
+        language: "en",
+        message: "The iPhone Demo is a strong fit.",
+        objective: "pitch",
+        recommendedAlternativeProductName: null,
+        suggestedTryout: "Try the camera controls.",
+      },
+      grounding: {
+        searchEntryPointRenderedContent: null,
+        sources: [
+          {
+            host: "www.apple.com",
+            title: "Apple iPhone",
+            url: "https://www.apple.com/iphone/",
+          },
+        ],
+        tools: ["google-search"],
+      },
     });
     mockTouchChatSession.mockResolvedValue({
       deviceSessionId: "22222222-2222-4222-8222-222222222222",
@@ -175,6 +189,17 @@ describe("/api/v1/chat-sessions/[id]/messages", () => {
           id: "44444444-4444-4444-8444-444444444444",
           role: "assistant",
         },
+        grounding: {
+          searchEntryPointRenderedContent: null,
+          sources: [
+            {
+              host: "www.apple.com",
+              title: "Apple iPhone",
+              url: "https://www.apple.com/iphone/",
+            },
+          ],
+          tools: ["google-search"],
+        },
         session: {
           deviceSessionId: "22222222-2222-4222-8222-222222222222",
           id: "33333333-3333-4333-8333-333333333333",
@@ -199,6 +224,7 @@ describe("/api/v1/chat-sessions/[id]/messages", () => {
         id: "11111111-1111-4111-8111-111111111111",
         idleMediaUrl: "https://example.com/idle.mp4",
         name: "iPhone Demo",
+        sourceUrls: [],
         storeId: "store-1",
         updatedAt: "2026-03-28T08:20:00.000Z",
       },

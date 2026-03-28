@@ -1,4 +1,8 @@
-import type { ApiErrorResponse, ApiSuccessResponse } from "@/types/api";
+import type {
+  ApiErrorResponse,
+  ApiSuccessResponse,
+  ProductImportDraftPayload,
+} from "@/types/api";
 import type { Lead, Product } from "@/types/domain";
 
 import type { ProductFormState } from "./sellerWorkspaceUtils";
@@ -30,6 +34,20 @@ export async function saveProductRequest(
         "content-type": "application/json",
       },
       method,
+    }),
+  );
+}
+
+export async function importProductDraftRequest(sourceUrls: string[]) {
+  return readApiData<ProductImportDraftPayload>(
+    await fetch("/api/v1/product-import-drafts", {
+      body: JSON.stringify({
+        sourceUrls,
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
     }),
   );
 }

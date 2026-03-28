@@ -1,3 +1,4 @@
+import type { ChatMessageGrounding } from "@/types/api";
 import type { ChatMessage } from "@/types/domain";
 
 export type KioskState = "idle" | "chat" | "lead" | "thanks";
@@ -23,6 +24,7 @@ export interface ChatSessionCreatePayload {
 
 export interface ChatSessionMessagePayload {
   assistantMessage: ChatMessage;
+  grounding: ChatMessageGrounding | null;
 }
 
 export interface CreateLeadPayload {
@@ -36,4 +38,9 @@ export interface CreateLeadPayload {
 export interface LiveChatSessionResult {
   initialMessage: ChatMessage | null;
   sessionId: string;
+}
+
+export interface LiveChatMessageResult {
+  assistantMessage: ChatMessage;
+  grounding: ChatMessageGrounding | null;
 }

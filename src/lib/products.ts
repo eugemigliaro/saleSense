@@ -26,6 +26,7 @@ const PRODUCT_COLUMNS = [
   "details_markdown",
   "comparison_snippet_markdown",
   "idle_media_url",
+  "source_urls",
   "created_at",
   "updated_at",
 ].join(", ");
@@ -69,6 +70,7 @@ export function mapProductRow(row: ProductRow): Product {
     id: row.id,
     idleMediaUrl: row.idle_media_url,
     name: row.name,
+    sourceUrls: row.source_urls,
     storeId: row.store_id,
     updatedAt: row.updated_at,
   };
@@ -98,6 +100,7 @@ export async function createProductForStore(
     details_markdown: input.detailsMarkdown,
     idle_media_url: input.idleMediaUrl,
     name: input.name,
+    source_urls: input.sourceUrls,
     store_id: storeId,
   };
 
@@ -149,6 +152,32 @@ export async function getProductById(productId: string) {
   }
 
   return data ? mapProductRow(asProductRow(data)) : null;
+}
+
+export async function listProductsByIdsForStore(
+  storeId: string,
+  productIds: string[],
+) {
+  if (productIds.length === 0) {
+    return [];
+  }
+
+  const supabase = createAdminSupabaseClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select(PRODUCT_COLUMNS)
+    .eq("store_id", storeId)
+    .in("id", productIds);
+
+  if (error) {
+    throw new Error(`Failed to load products by ids: ${error.message}`);
+  }
+
+  const productsById = new Map(asProductRows(data).map((row) => [row.id, mapProductRow(row)]));
+
+  return productIds
+    .map((productId) => productsById.get(productId))
+    .filter((product): product is Product => Boolean(product));
 }
 
 export async function listProductsByStore(storeId: string) {
@@ -215,6 +244,10 @@ export async function updateProductForStore(
 
   if (input.name !== undefined) {
     updatePayload.name = input.name;
+  }
+
+  if (input.sourceUrls !== undefined) {
+    updatePayload.source_urls = input.sourceUrls;
   }
 
   const { data, error } = await supabase

@@ -19,6 +19,7 @@ const ACTIVE_PRODUCT: Product = {
   id: "11111111-1111-4111-8111-111111111111",
   idleMediaUrl: "https://example.com/idle.mp4",
   name: "iPhone Demo",
+  sourceUrls: [],
   storeId: "store-1",
   updatedAt: "2026-03-28T08:20:00.000Z",
 };

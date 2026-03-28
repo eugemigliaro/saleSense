@@ -25,6 +25,7 @@ export interface Product {
   id: string;
   idleMediaUrl: string;
   name: string;
+  sourceUrls: string[];
   storeId: string;
   updatedAt: string;
 }

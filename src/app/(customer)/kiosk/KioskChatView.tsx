@@ -1,32 +1,53 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Bot, MessageCircle, Send, User, X } from "lucide-react";
+import {
+  Bot,
+  ExternalLink,
+  MessageCircle,
+  Search,
+  Send,
+  User,
+  X,
+} from "lucide-react";
 import { useEffect, useRef } from "react";
 
+import type { ChatMessageGrounding } from "@/types/api";
 import type { ChatMessage } from "@/types/domain";
 
 interface KioskChatViewProps {
+  activeGrounding: ChatMessageGrounding | null;
   chatError: string | null;
   draft: string;
+  groundingByMessageId: Record<string, ChatMessageGrounding>;
   idleMediaUrl: string | null;
   isTyping: boolean;
   messages: ChatMessage[];
+  onCloseGrounding: () => void;
   productName: string;
   onDraftChange: (value: string) => void;
   onEndSession: () => void;
+  onOpenGroundingForMessage: (messageId: string) => void;
   onSendMessage: (content: string) => void | Promise<void>;
 }
 
+function stripHtml(value: string) {
+  return value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
 export function KioskChatView({
+  activeGrounding,
   chatError,
   draft,
+  groundingByMessageId,
   idleMediaUrl,
   isTyping,
   messages,
+  onCloseGrounding,
   productName,
   onDraftChange,
   onEndSession,
+  onOpenGroundingForMessage,
   onSendMessage,
 }: KioskChatViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -117,32 +138,49 @@ export function KioskChatView({
                   key={message.id}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
-                  {message.role === "assistant" ? (
-                    <div className="mr-3 mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/8">
-                      <Bot className="h-4.5 w-4.5 text-blue-300" />
-                    </div>
-                  ) : null}
-
                   <div
-                    className={`max-w-[82%] rounded-3xl px-4 py-3 sm:max-w-[68%] sm:px-5 ${
-                      message.role === "user"
-                        ? "rounded-br-xl bg-gradient-to-r from-blue-500 to-violet-600 text-white shadow-[0_22px_45px_-26px_rgba(59,130,246,0.98)]"
-                        : "rounded-bl-xl border border-white/10 bg-white/10 text-white/92 backdrop-blur-md"
-                    }`}
+                    className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                   >
-                    <p className="break-words text-[15px] leading-7">
-                      {message.content}
-                    </p>
-                    <p className="mt-2 text-xs text-white/45">
-                      {formatMessageTime(message.createdAt)}
-                    </p>
+                    {message.role === "assistant" ? (
+                      <div className="mr-3 mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/8">
+                        <Bot className="h-4.5 w-4.5 text-blue-300" />
+                      </div>
+                    ) : null}
+
+                    <div
+                      className={`max-w-[82%] rounded-3xl px-4 py-3 sm:max-w-[68%] sm:px-5 ${
+                        message.role === "user"
+                          ? "rounded-br-xl bg-gradient-to-r from-blue-500 to-violet-600 text-white shadow-[0_22px_45px_-26px_rgba(59,130,246,0.98)]"
+                          : "rounded-bl-xl border border-white/10 bg-white/10 text-white/92 backdrop-blur-md"
+                      }`}
+                    >
+                      <p className="break-words text-[15px] leading-7">
+                        {message.content}
+                      </p>
+                      <p className="mt-2 text-xs text-white/45">
+                        {formatMessageTime(message.createdAt)}
+                      </p>
+                    </div>
+
+                    {message.role === "user" ? (
+                      <div className="ml-3 mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-blue-500 to-violet-600">
+                        <User className="h-4.5 w-4.5 text-white" />
+                      </div>
+                    ) : null}
                   </div>
 
-                  {message.role === "user" ? (
-                    <div className="ml-3 mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-blue-500 to-violet-600">
-                      <User className="h-4.5 w-4.5 text-white" />
+                  {message.role === "assistant" &&
+                  groundingByMessageId[message.id]?.sources.length ? (
+                    <div className="mt-2 flex justify-start pl-12">
+                      <button
+                        type="button"
+                        onClick={() => onOpenGroundingForMessage(message.id)}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/80 transition-colors hover:border-primary/40 hover:text-white"
+                      >
+                        <Search className="h-3.5 w-3.5" />
+                        View sources
+                      </button>
                     </div>
                   ) : null}
                 </motion.div>
@@ -169,11 +207,11 @@ export function KioskChatView({
 
           <div className="border-t border-white/10 px-5 py-4 sm:px-6">
             <div className="mx-auto max-w-4xl">
-          {chatError ? (
-            <div className="mb-3 rounded-xl border border-amber-400/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-              {chatError}
-            </div>
-          ) : null}
+              {chatError ? (
+                <div className="mb-3 rounded-xl border border-amber-400/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+                  {chatError}
+                </div>
+              ) : null}
 
               <form
                 onSubmit={(event) => {
@@ -217,6 +255,61 @@ export function KioskChatView({
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {activeGrounding ? (
+          <motion.aside
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }}
+            className="absolute right-4 top-20 z-20 w-[min(28rem,calc(100vw-2rem))] rounded-2xl border border-white/10 bg-[rgba(11,14,25,0.96)] p-5 shadow-2xl backdrop-blur"
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.24em] text-primary/80">
+                  Grounding
+                </p>
+                <h3 className="mt-1 font-display text-lg font-semibold text-white">
+                  External sources
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={onCloseGrounding}
+                className="rounded-lg border border-white/10 p-2 text-white/70 transition-colors hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {activeGrounding.searchEntryPointRenderedContent ? (
+              <p className="mb-4 text-sm leading-relaxed text-white/70">
+                {stripHtml(activeGrounding.searchEntryPointRenderedContent)}
+              </p>
+            ) : null}
+
+            <div className="space-y-3">
+              {activeGrounding.sources.map((source) => (
+                <a
+                  key={`${source.url}-${source.title}`}
+                  href={source.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block rounded-xl border border-white/10 bg-white/5 px-4 py-3 transition-colors hover:border-primary/40 hover:bg-white/8"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-white">{source.title}</p>
+                      <p className="mt-1 text-xs text-white/55">{source.host}</p>
+                    </div>
+                    <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-white/45" />
+                  </div>
+                </a>
+              ))}
+            </div>
+          </motion.aside>
+        ) : null}
+      </AnimatePresence>
     </motion.div>
   );
 }

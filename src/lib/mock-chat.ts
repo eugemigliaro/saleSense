@@ -1,5 +1,11 @@
 import type { ChatMessage, Product } from "@/types/domain";
 
+function normalizeCategoryLabel(category: string) {
+  const trimmed = category.trim();
+
+  return trimmed.length > 0 ? trimmed.toLowerCase() : "setup";
+}
+
 function createAssistantMessage(content: string): ChatMessage {
   return {
     content,
@@ -10,9 +16,9 @@ function createAssistantMessage(content: string): ChatMessage {
 }
 
 export function buildChatGreeting(product: Product) {
-  const productLabel = `${product.brand} ${product.name}`;
+  const categoryLabel = normalizeCategoryLabel(product.category);
 
   return createAssistantMessage(
-    `Hi there! I'm your virtual sales assistant for the ${productLabel}. I can tell you all about it, help compare it with other options, or answer any questions. What brings you in today?`,
+    `Hi, what matters most to you in a ${categoryLabel} right now?`,
   );
 }

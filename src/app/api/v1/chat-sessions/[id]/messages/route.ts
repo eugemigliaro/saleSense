@@ -60,7 +60,7 @@ export async function POST(request: Request, context: ChatMessageRouteContext) {
     const input = normalizeSendChatMessageInput(validationResult.data);
     await appendChatMessage(paramsResult.data.id, "user", input.content);
     const history = await listChatMessagesBySessionId(paramsResult.data.id);
-    const assistantDraft = await generateSalesAssistantReply({
+    const assistantReply = await generateSalesAssistantReply({
       activeProduct: chatSessionContext.product,
       history,
       storeId: chatSessionContext.session.storeId,
@@ -68,7 +68,7 @@ export async function POST(request: Request, context: ChatMessageRouteContext) {
     const assistantMessage = await appendChatMessage(
       paramsResult.data.id,
       "assistant",
-      assistantDraft.message,
+      assistantReply.draft.message,
     );
     const [updatedSession] = await Promise.all([
       touchChatSession(paramsResult.data.id),
@@ -81,6 +81,7 @@ export async function POST(request: Request, context: ChatMessageRouteContext) {
 
     return jsonSuccess({
       assistantMessage,
+      grounding: assistantReply.grounding,
       session: updatedSession,
     });
   } catch (error) {

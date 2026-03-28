@@ -4,24 +4,24 @@ import {
   appendChatMessage,
   createChatSessionForDeviceSession,
 } from "@/lib/chat-sessions";
-import { buildChatGreeting } from "@/lib/mock-chat";
+import { generateChatOpener } from "@/lib/ai/chatOpener";
 
 import { POST } from "./route";
+
+vi.mock("@/lib/ai/chatOpener", () => ({
+  generateChatOpener: vi.fn(),
+}));
 
 vi.mock("@/lib/chat-sessions", () => ({
   appendChatMessage: vi.fn(),
   createChatSessionForDeviceSession: vi.fn(),
 }));
 
-vi.mock("@/lib/mock-chat", () => ({
-  buildChatGreeting: vi.fn(),
-}));
-
 const mockCreateChatSessionForDeviceSession = vi.mocked(
   createChatSessionForDeviceSession,
 );
 const mockAppendChatMessage = vi.mocked(appendChatMessage);
-const mockBuildChatGreeting = vi.mocked(buildChatGreeting);
+const mockGenerateChatOpener = vi.mocked(generateChatOpener);
 
 describe("/api/v1/chat-sessions", () => {
   beforeEach(() => {
@@ -63,6 +63,7 @@ describe("/api/v1/chat-sessions", () => {
         id: "11111111-1111-4111-8111-111111111111",
         idleMediaUrl: "https://example.com/idle.mp4",
         name: "iPhone Demo",
+        sourceUrls: [],
         storeId: "store-1",
         updatedAt: "2026-03-28T08:20:00.000Z",
       },
@@ -76,14 +77,11 @@ describe("/api/v1/chat-sessions", () => {
         storeId: "store-1",
       },
     });
-    mockBuildChatGreeting.mockReturnValue({
-      content: "Hi, I'm your guide.",
-      createdAt: "2026-03-28T08:21:00.000Z",
-      id: "44444444-4444-4444-8444-444444444444",
-      role: "assistant",
-    });
+    mockGenerateChatOpener.mockResolvedValue(
+      "Hi, what matters most to you right now?",
+    );
     mockAppendChatMessage.mockResolvedValue({
-      content: "Hi, I'm your guide.",
+      content: "Hi, what matters most to you right now?",
       createdAt: "2026-03-28T08:21:00.000Z",
       id: "44444444-4444-4444-8444-444444444444",
       role: "assistant",
@@ -108,7 +106,7 @@ describe("/api/v1/chat-sessions", () => {
     await expect(response.json()).resolves.toEqual({
       data: {
         initialMessage: {
-          content: "Hi, I'm your guide.",
+          content: "Hi, what matters most to you right now?",
           createdAt: "2026-03-28T08:21:00.000Z",
           id: "44444444-4444-4444-8444-444444444444",
           role: "assistant",

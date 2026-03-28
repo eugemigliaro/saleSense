@@ -16,6 +16,7 @@ describe("mapProductRow", () => {
       id: "11111111-1111-4111-8111-111111111111",
       idle_media_url: "https://example.com/idle.mp4",
       name: "iPhone Demo",
+      source_urls: [],
       store_id: "store-1",
       updated_at: "2026-03-28T07:05:00.000Z",
     };
@@ -29,6 +30,7 @@ describe("mapProductRow", () => {
       id: "11111111-1111-4111-8111-111111111111",
       idleMediaUrl: "https://example.com/idle.mp4",
       name: "iPhone Demo",
+      sourceUrls: [],
       storeId: "store-1",
       updatedAt: "2026-03-28T07:05:00.000Z",
     });

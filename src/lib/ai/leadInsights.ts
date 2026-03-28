@@ -3,7 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import { generateGeminiJson } from "@/lib/ai/geminiClient";
-import { selectRelevantComparisonProducts } from "@/lib/ai/salesAgent";
+import { selectRelevantComparisonProducts } from "@/lib/ai/alternativeProducts";
 import {
   listComparisonProductsByStore,
   type ComparisonProduct,
@@ -196,8 +196,10 @@ export async function generateLeadInsightsWithGemini(
   const prompt = buildLeadInsightsPrompt(input);
   const rawInsights = await generateGeminiJson<unknown>(
     prompt,
-    LEAD_INSIGHTS_SYSTEM_INSTRUCTION,
-    LEAD_INSIGHTS_RESPONSE_JSON_SCHEMA,
+    {
+      responseJsonSchema: LEAD_INSIGHTS_RESPONSE_JSON_SCHEMA,
+      systemInstruction: LEAD_INSIGHTS_SYSTEM_INSTRUCTION,
+    },
   );
 
   return leadInsightsSchema.parse(rawInsights);

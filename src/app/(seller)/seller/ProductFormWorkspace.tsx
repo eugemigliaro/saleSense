@@ -16,6 +16,21 @@ import {
 } from "./sellerWorkspaceUtils";
 import { saveProductRequest } from "./workspaceApi";
 
+function parseSourceUrls(value: string) {
+  return Array.from(
+    new Set(
+      value
+        .split(/\r?\n|,/)
+        .map((entry) => entry.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function formatSourceUrls(sourceUrls: string[]) {
+  return sourceUrls.join("\n");
+}
+
 interface ProductFormWorkspaceProps {
   initialProduct?: Product | null;
 }
@@ -126,7 +141,9 @@ export function ProductFormWorkspace({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium">Product Details (Markdown)</label>
+            <label className="mb-1.5 block text-sm font-medium">
+              Product Details (Markdown)
+            </label>
             <textarea
               value={formState.detailsMarkdown}
               onChange={(event) => updateField("detailsMarkdown", event.target.value)}
@@ -160,6 +177,26 @@ export function ProductFormWorkspace({
               placeholder="https://example.com/demo.jpg"
               className={inputClass}
             />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">
+              Approved Source URLs
+            </label>
+            <textarea
+              value={formatSourceUrls(formState.sourceUrls)}
+              onChange={(event) =>
+                updateField("sourceUrls", parseSourceUrls(event.target.value))
+              }
+              rows={4}
+              placeholder={
+                "https://www.apple.com/iphone-16-pro/\nhttps://www.bestbuy.com/site/..."
+              }
+              className={`${inputClass} resize-y font-mono text-xs`}
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              These URLs may later be used for live product-grounded research in chat.
+            </p>
           </div>
 
           <button

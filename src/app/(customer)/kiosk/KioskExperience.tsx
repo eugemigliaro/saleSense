@@ -40,14 +40,18 @@ export default function KioskExperience({
       {experience.state === "chat" ? (
         <KioskChatView
           key="chat"
+          activeGrounding={experience.activeGrounding}
           chatError={experience.chatError}
           draft={experience.draft}
+          groundingByMessageId={experience.groundingByMessageId}
           idleMediaUrl={idleMediaUrl}
           isTyping={experience.isTyping}
           messages={experience.messages}
+          onCloseGrounding={experience.closeGrounding}
           productName={productName}
           onDraftChange={experience.setDraft}
           onEndSession={experience.transitionToLeadCapture}
+          onOpenGroundingForMessage={experience.openGroundingForMessage}
           onSendMessage={experience.sendMessage}
         />
       ) : null}

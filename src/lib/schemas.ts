@@ -6,6 +6,8 @@ const PRODUCT_CATEGORY_MAX_LENGTH = 80;
 const PRODUCT_DETAILS_MAX_LENGTH = 20_000;
 const PRODUCT_COMPARISON_SNIPPET_MAX_LENGTH = 4_000;
 const PRODUCT_IDLE_MEDIA_URL_MAX_LENGTH = 2_048;
+const PRODUCT_SOURCE_URL_MAX_ITEMS = 20;
+const PRODUCT_IMPORT_SOURCE_URL_MAX_ITEMS = 5;
 
 const LEAD_NAME_MAX_LENGTH = 120;
 const LEAD_EMAIL_MAX_LENGTH = 320;
@@ -54,6 +56,64 @@ function httpUrl(label: string, maxLength: number) {
     }, `${label} must use http or https.`);
 }
 
+function hasPrivateHostname(hostname: string) {
+  const normalizedHostname = hostname.toLowerCase();
+
+  if (
+    normalizedHostname === "localhost" ||
+    normalizedHostname === "::1" ||
+    normalizedHostname.endsWith(".local")
+  ) {
+    return true;
+  }
+
+  if (/^127\./.test(normalizedHostname)) {
+    return true;
+  }
+
+  const ipv4Match = normalizedHostname.match(
+    /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/,
+  );
+
+  if (!ipv4Match) {
+    return false;
+  }
+
+  const first = Number(ipv4Match[1]);
+  const second = Number(ipv4Match[2]);
+
+  if (first === 10 || first === 127 || first === 0) {
+    return true;
+  }
+
+  if (first === 172 && second >= 16 && second <= 31) {
+    return true;
+  }
+
+  return first === 192 && second === 168;
+}
+
+function publicHttpUrl(label: string, maxLength: number) {
+  return httpUrl(label, maxLength).refine((value) => {
+    const hostname = new URL(value).hostname;
+
+    return !hasPrivateHostname(hostname);
+  }, `${label} must be publicly reachable.`);
+}
+
+function sourceUrlList(minItems: number, maxItems: number) {
+  return z
+    .array(publicHttpUrl("Source URL", PRODUCT_IDLE_MEDIA_URL_MAX_LENGTH))
+    .min(minItems, `Provide at least ${minItems} source URL${minItems === 1 ? "" : "s"}.`)
+    .max(
+      maxItems,
+      `Provide at most ${maxItems} source URL${maxItems === 1 ? "" : "s"}.`,
+    )
+    .transform((value) => Array.from(new Set(value)));
+}
+
+const productSourceUrlsSchema = sourceUrlList(0, PRODUCT_SOURCE_URL_MAX_ITEMS);
+
 function emailAddress(label: string, maxLength: number) {
   return z
     .string()
@@ -74,11 +134,17 @@ const createProductShape = {
   detailsMarkdown: requiredText("Product details", PRODUCT_DETAILS_MAX_LENGTH),
   idleMediaUrl: httpUrl("Idle media URL", PRODUCT_IDLE_MEDIA_URL_MAX_LENGTH),
   name: requiredText("Product name", PRODUCT_NAME_MAX_LENGTH),
+  sourceUrls: productSourceUrlsSchema.default([]),
 };
 
 export const createProductSchema = z.object(createProductShape).strict();
 
-export const updateProductSchema = createProductSchema
+export const updateProductSchema = z
+  .object({
+    ...createProductShape,
+    sourceUrls: productSourceUrlsSchema.optional(),
+  })
+  .strict()
   .partial()
   .refine((value) => Object.keys(value).length > 0, {
     message: "At least one product field must be provided.",
@@ -139,10 +205,19 @@ export const chatSessionIdParamsSchema = z.object({
 
 export const sendChatMessageSchema = sendChatMessageBodySchema;
 
+export const createProductImportDraftSchema = z
+  .object({
+    sourceUrls: sourceUrlList(1, PRODUCT_IMPORT_SOURCE_URL_MAX_ITEMS),
+  })
+  .strict();
+
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 export type CreateDeviceSessionInput = z.infer<typeof createDeviceSessionSchema>;
 export type CreateChatSessionInput = z.infer<typeof createChatSessionSchema>;
+export type CreateProductImportDraftInput = z.infer<
+  typeof createProductImportDraftSchema
+>;
 
 export interface CreateLeadInput {
   aiSummary: string | null;

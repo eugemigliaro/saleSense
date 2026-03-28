@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+export const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
 
 const publicEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1).optional(),
@@ -65,5 +65,7 @@ export function getGeminiModel() {
     GEMINI_MODEL: process.env.GEMINI_MODEL,
   });
 
-  return env.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL;
+  const requestedModel = env.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL;
+
+  return requestedModel;
 }
