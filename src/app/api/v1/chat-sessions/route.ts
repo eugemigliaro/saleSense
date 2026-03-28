@@ -7,7 +7,10 @@ import {
   readJsonBody,
 } from "@/lib/api-request";
 import { jsonSuccess } from "@/lib/api-response";
-import { createChatSessionForDeviceSession } from "@/lib/chat-sessions";
+import {
+  appendChatMessage,
+  createChatSessionForDeviceSession,
+} from "@/lib/chat-sessions";
 import { buildChatGreeting } from "@/lib/mock-chat";
 import { createChatSessionSchema } from "@/lib/schemas";
 
@@ -28,9 +31,15 @@ export async function POST(request: Request) {
       return jsonNotFoundError("Device session not found.");
     }
 
+    const initialMessage = await appendChatMessage(
+      context.session.id,
+      "assistant",
+      buildChatGreeting(context.product).content,
+    );
+
     return jsonSuccess(
       {
-        initialMessage: buildChatGreeting(context.product),
+        initialMessage,
         session: context.session,
       },
       {

@@ -170,7 +170,6 @@ export interface SendChatHistoryMessageInput {
 
 export interface SendChatMessageInput {
   content: string;
-  history: SendChatHistoryMessageInput[];
 }
 
 export function normalizeCreateLeadInput(
@@ -192,6 +191,5 @@ export function normalizeSendChatMessageInput(
 ): SendChatMessageInput {
   return {
     content: value.content,
-    history: value.history ?? [],
   };
 }

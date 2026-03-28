@@ -19,6 +19,38 @@ export interface Database {
     Enums: Record<string, never>;
     Functions: Record<string, never>;
     Tables: {
+      chat_messages: {
+        Insert: {
+          chat_session_id: string;
+          content: string;
+          created_at?: string;
+          id?: string;
+          role: string;
+        };
+        Relationships: [
+          {
+            columns: ["chat_session_id"];
+            foreignKeyName: "chat_messages_chat_session_id_fkey";
+            isOneToOne: false;
+            referencedColumns: ["id"];
+            referencedRelation: "chat_sessions";
+          },
+        ];
+        Row: {
+          chat_session_id: string;
+          content: string;
+          created_at: string;
+          id: string;
+          role: string;
+        };
+        Update: {
+          chat_session_id?: string;
+          content?: string;
+          created_at?: string;
+          id?: string;
+          role?: string;
+        };
+      };
       chat_sessions: {
         Insert: {
           device_session_id: string;

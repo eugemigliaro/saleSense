@@ -1,18 +1,21 @@
 import {
   InvalidJsonBodyError,
+  jsonConflictError,
   jsonInvalidJsonError,
   jsonNotFoundError,
   jsonServerError,
   jsonValidationError,
   readJsonBody,
 } from "@/lib/api-request";
+import { generateSalesAssistantReply } from "@/lib/ai/salesAgent";
 import { jsonSuccess } from "@/lib/api-response";
 import {
+  appendChatMessage,
   getChatSessionContextById,
+  listChatMessagesBySessionId,
   touchChatSession,
 } from "@/lib/chat-sessions";
 import { touchDeviceSession } from "@/lib/device-sessions";
-import { buildMockAssistantReply } from "@/lib/mock-chat";
 import {
   chatSessionIdParamsSchema,
   normalizeSendChatMessageInput,
@@ -50,15 +53,27 @@ export async function POST(request: Request, context: ChatMessageRouteContext) {
       return jsonNotFoundError("Chat session not found.");
     }
 
-    const input = normalizeSendChatMessageInput(validationResult.data);
-    const assistantMessage = buildMockAssistantReply({
-      customerMessage: input.content,
-      history: input.history,
-      product: chatSessionContext.product,
-    });
-    const updatedSession = await touchChatSession(paramsResult.data.id);
+    if (chatSessionContext.session.status !== "active") {
+      return jsonConflictError("Chat session is no longer active.");
+    }
 
-    await touchDeviceSession(chatSessionContext.session.deviceSessionId, "engaged");
+    const input = normalizeSendChatMessageInput(validationResult.data);
+    await appendChatMessage(paramsResult.data.id, "user", input.content);
+    const history = await listChatMessagesBySessionId(paramsResult.data.id);
+    const assistantDraft = await generateSalesAssistantReply({
+      activeProduct: chatSessionContext.product,
+      history,
+      storeId: chatSessionContext.session.storeId,
+    });
+    const assistantMessage = await appendChatMessage(
+      paramsResult.data.id,
+      "assistant",
+      assistantDraft.message,
+    );
+    const [updatedSession] = await Promise.all([
+      touchChatSession(paramsResult.data.id),
+      touchDeviceSession(chatSessionContext.session.deviceSessionId, "engaged"),
+    ]);
 
     if (!updatedSession) {
       return jsonNotFoundError("Chat session not found.");

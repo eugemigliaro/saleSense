@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+
 const publicEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1).optional(),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1).optional(),
@@ -23,6 +25,7 @@ const serviceRoleEnvSchema = z.object({
 
 const geminiEnvSchema = z.object({
   GEMINI_API_KEY: z.string().min(1),
+  GEMINI_MODEL: z.string().trim().min(1).optional(),
 });
 
 export function getPublicEnv() {
@@ -52,5 +55,15 @@ export function getSupabaseServiceRoleKey() {
 export function getGeminiApiKey() {
   return geminiEnvSchema.parse({
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    GEMINI_MODEL: process.env.GEMINI_MODEL,
   }).GEMINI_API_KEY;
+}
+
+export function getGeminiModel() {
+  const env = geminiEnvSchema.parse({
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    GEMINI_MODEL: process.env.GEMINI_MODEL,
+  });
+
+  return env.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL;
 }

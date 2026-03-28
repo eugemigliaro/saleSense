@@ -12,6 +12,10 @@ type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
 type ProductRow = Database["public"]["Tables"]["products"]["Row"];
 type ProductScopeRow = Pick<ProductRow, "id" | "store_id">;
 type ProductUpdate = Database["public"]["Tables"]["products"]["Update"];
+type ProductComparisonRow = Pick<
+  ProductRow,
+  "id" | "name" | "brand" | "category" | "comparison_snippet_markdown"
+>;
 
 const PRODUCT_COLUMNS = [
   "id",
@@ -31,6 +35,14 @@ export interface ProductScope {
   storeId: string;
 }
 
+export interface ComparisonProduct {
+  brand: string;
+  category: string;
+  comparisonSnippetMarkdown: string;
+  id: string;
+  name: string;
+}
+
 function asProductRow(value: unknown) {
   return value as ProductRow;
 }
@@ -41,6 +53,10 @@ function asProductRows(value: unknown) {
 
 function asProductScopeRow(value: unknown) {
   return value as ProductScopeRow;
+}
+
+function asProductComparisonRows(value: unknown) {
+  return value as ProductComparisonRow[];
 }
 
 export function mapProductRow(row: ProductRow): Product {
@@ -55,6 +71,18 @@ export function mapProductRow(row: ProductRow): Product {
     name: row.name,
     storeId: row.store_id,
     updatedAt: row.updated_at,
+  };
+}
+
+export function mapComparisonProductRow(
+  row: ProductComparisonRow,
+): ComparisonProduct {
+  return {
+    brand: row.brand,
+    category: row.category,
+    comparisonSnippetMarkdown: row.comparison_snippet_markdown,
+    id: row.id,
+    name: row.name,
   };
 }
 
@@ -136,6 +164,25 @@ export async function listProductsByStore(storeId: string) {
   }
 
   return asProductRows(data).map(mapProductRow);
+}
+
+export async function listComparisonProductsByStore(
+  storeId: string,
+  activeProductId: string,
+) {
+  const supabase = createAdminSupabaseClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select("id, name, brand, category, comparison_snippet_markdown")
+    .eq("store_id", storeId)
+    .neq("id", activeProductId)
+    .order("name", { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to load comparison products: ${error.message}`);
+  }
+
+  return asProductComparisonRows(data).map(mapComparisonProductRow);
 }
 
 export async function updateProductForStore(

@@ -44,6 +44,14 @@ export function jsonNotFoundError(message = "Resource not found.") {
   });
 }
 
+export function jsonConflictError(message = "Resource state conflict.") {
+  return jsonError({
+    code: "conflict",
+    message,
+    status: 409,
+  });
+}
+
 export function jsonServerError(message = "Unexpected server error.") {
   return jsonError({
     code: "internal_error",

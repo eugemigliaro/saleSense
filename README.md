@@ -43,9 +43,11 @@ NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=PASTE_FROM_SUPABASE_STATUS
 SUPABASE_SERVICE_ROLE_KEY=PASTE_FROM_SUPABASE_STATUS
 GEMINI_API_KEY=YOUR_GEMINI_KEY
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
 `NEXT_PUBLIC_SUPABASE_ANON_KEY` is also accepted by the app, but the local CLI output typically gives you the publishable key directly.
+If `GEMINI_MODEL` is omitted, the server defaults to `gemini-2.5-flash`.
 
 5. Start the app:
 

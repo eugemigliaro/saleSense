@@ -60,14 +60,13 @@ describe("createDeviceSessionSchema", () => {
 });
 
 describe("normalizeSendChatMessageInput", () => {
-  it("defaults history to an empty array", () => {
+  it("returns the normalized message content without requiring client history", () => {
     const parsed = sendChatMessageSchema.parse({
       content: "Tell me more about the camera.",
     });
 
     expect(normalizeSendChatMessageInput(parsed)).toEqual({
       content: "Tell me more about the camera.",
-      history: [],
     });
   });
 });

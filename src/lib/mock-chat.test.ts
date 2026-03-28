@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  buildChatGreeting,
-  buildMockAssistantReply,
-} from "@/lib/mock-chat";
+import { buildChatGreeting } from "@/lib/mock-chat";
 import type { Product } from "@/types/domain";
 
 const TEST_PRODUCT: Product = {
@@ -27,18 +24,5 @@ describe("buildChatGreeting", () => {
 
     expect(message.role).toBe("assistant");
     expect(message.content).toContain("Apple iPhone Demo");
-  });
-});
-
-describe("buildMockAssistantReply", () => {
-  it("uses comparison context when the customer asks to compare", () => {
-    const message = buildMockAssistantReply({
-      customerMessage: "Can you compare this with other options?",
-      history: [],
-      product: TEST_PRODUCT,
-    });
-
-    expect(message.role).toBe("assistant");
-    expect(message.content).toContain("For comparison");
   });
 });
