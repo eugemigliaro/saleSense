@@ -61,12 +61,10 @@ export default function KioskExperience({
           key="lead"
           customerEmail={experience.customerEmail}
           customerName={experience.customerName}
-          customerPhone={experience.customerPhone}
           isSubmittingLead={experience.isSubmittingLead}
           leadError={experience.leadError}
           onCustomerEmailChange={experience.setCustomerEmail}
           onCustomerNameChange={experience.setCustomerName}
-          onCustomerPhoneChange={experience.setCustomerPhone}
           onReset={experience.resetExperience}
           onSubmit={experience.submitLead}
         />

@@ -1,6 +1,14 @@
 export type StoreManagerRole = "manager";
 export type ChatMessageRole = "assistant" | "user";
 export type ChatSessionStatus = "active" | "completed";
+export type ConversationSaleOutcome =
+  | "none"
+  | "ai_inferred"
+  | "store_confirmed";
+export type ConversationFeedbackSentiment =
+  | "positive"
+  | "neutral"
+  | "negative";
 
 export type DeviceSessionState =
   | "idle"
@@ -67,14 +75,35 @@ export interface ChatMessage {
   role: ChatMessageRole;
 }
 
+export interface ConversationAnalytics {
+  buyProbability: number | null;
+  chatSessionId: string;
+  durationSeconds: number | null;
+  endedAt: string | null;
+  faqExamples: string[];
+  faqTopics: string[];
+  feedbackScore: number | null;
+  feedbackSentiment: ConversationFeedbackSentiment | null;
+  manualSaleConfirmed: boolean;
+  messageCount: number;
+  productId: string;
+  redirectedToOtherProduct: boolean;
+  redirectTargetProductId: string | null;
+  saleOutcome: ConversationSaleOutcome;
+  startedAt: string;
+  storeId: string;
+}
+
 export interface Lead {
   aiSummary: string | null;
+  chatSessionId: string | null;
   createdAt: string;
   customerEmail: string;
   customerName: string;
   customerPhone: string | null;
   id: string;
   inferredInterest: string | null;
+  isSaleConfirmed: boolean;
   nextBestProduct: string | null;
   productId: string;
   storeId: string;

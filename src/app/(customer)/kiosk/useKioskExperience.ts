@@ -60,7 +60,6 @@ export function useKioskExperience({
   const [chatSessionId, setChatSessionId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
   const [leadError, setLeadError] = useState<string | null>(null);
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
   const chatSessionRequestRef = useRef<Promise<LiveChatSessionResult | null> | null>(
@@ -133,7 +132,6 @@ export function useKioskExperience({
     void voiceSession.disconnect();
     setCustomerEmail("");
     setCustomerName("");
-    setCustomerPhone("");
     setChatError(null);
     setLeadError(null);
     setChatSessionId(null);
@@ -417,7 +415,6 @@ export function useKioskExperience({
         await createKioskLead({
           customerEmail: customerEmail.trim(),
           customerName: customerName.trim(),
-          customerPhone: customerPhone.trim() || undefined,
           chatSessionId: chatSessionId ?? undefined,
           productId,
         });
@@ -445,7 +442,6 @@ export function useKioskExperience({
     closeGrounding: () => setActiveGroundingMessageId(null),
     customerEmail,
     customerName,
-    customerPhone,
     draft,
     groundingByMessageId,
     isLiveSession: Boolean(deviceSessionId),
@@ -464,7 +460,6 @@ export function useKioskExperience({
     sendMessage,
     setCustomerEmail,
     setCustomerName,
-    setCustomerPhone,
     setDraft,
     startExperience,
     state,

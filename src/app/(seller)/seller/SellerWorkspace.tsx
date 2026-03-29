@@ -1,24 +1,33 @@
 "use client";
 
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { Monitor, Package, Users } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 
 import { SlideTabs } from "@/components/ui/slide-tabs";
-import type { Lead, MonitoredDeviceSession, Product } from "@/types/domain";
+import type {
+  ConversationAnalytics,
+  Lead,
+  MonitoredDeviceSession,
+  Product,
+} from "@/types/domain";
 
 import { LaunchDeviceDialog } from "./LaunchDeviceDialog";
 import { ProductSessionsDialog } from "./ProductSessionsDialog";
 import { SellerDashboardView } from "./SellerDashboardView";
 import { SellerLeadsView } from "./SellerLeadsView";
 import { SellerProductsView } from "./SellerProductsView";
+import { buildMockConversationAnalytics } from "./sellerAnalytics";
 import {
   dismissDeviceSessionRequest,
   fetchDeviceSessionsRequest,
   fetchLeadsRequest,
   launchProductRequest,
+  updateLeadSaleConfirmationRequest,
 } from "./workspaceApi";
 
 interface SellerWorkspaceProps {
+  initialAnalytics: ConversationAnalytics[];
   initialDeviceSessions: MonitoredDeviceSession[];
   initialLeads: Lead[];
   initialProducts: Product[];
@@ -51,13 +60,20 @@ function getSessionCountByProduct(deviceSessions: MonitoredDeviceSession[]) {
 }
 
 export default function SellerWorkspace({
+  initialAnalytics,
   initialDeviceSessions,
   initialLeads,
   initialProducts,
 }: SellerWorkspaceProps) {
+  const usesPersistedAnalytics = initialAnalytics.length > 0;
   const [activeTab, setActiveTab] = useState<SellerWorkspaceTab>("products");
   const [deviceSessions, setDeviceSessions] = useState(initialDeviceSessions);
   const [leads, setLeads] = useState(initialLeads);
+  const [analytics, setAnalytics] = useState<ConversationAnalytics[]>(
+    usesPersistedAnalytics
+      ? initialAnalytics
+      : buildMockConversationAnalytics(initialLeads, initialProducts),
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [launchingProduct, setLaunchingProduct] = useState<Product | null>(null);
   const [launchLabel, setLaunchLabel] = useState("");
@@ -66,12 +82,31 @@ export default function SellerWorkspace({
   const [isDismissingSessionId, setIsDismissingSessionId] = useState<string | null>(
     null,
   );
+  const [updatingLeadId, setUpdatingLeadId] = useState<string | null>(null);
 
   const tabs: Array<{ key: SellerWorkspaceTab; label: string }> = [
     { key: "products", label: "Products" },
     { key: "dashboard", label: "Dashboard" },
     { key: "leads", label: "Leads" },
   ];
+
+  function syncAnalyticsWithLeads(
+    nextAnalytics: ConversationAnalytics[],
+    nextLeads: Lead[],
+  ) {
+    const saleConfirmationByChatSessionId = new Map(
+      nextLeads
+        .filter((lead) => Boolean(lead.chatSessionId))
+        .map((lead) => [lead.chatSessionId as string, lead.isSaleConfirmed]),
+    );
+
+    return nextAnalytics.map((entry) => ({
+      ...entry,
+      manualSaleConfirmed:
+        saleConfirmationByChatSessionId.get(entry.chatSessionId) ??
+        entry.manualSaleConfirmed,
+    }));
+  }
 
   const attentionCountByProduct = useMemo(
     () => getAttentionCountByProduct(deviceSessions),
@@ -113,6 +148,14 @@ export default function SellerWorkspace({
     try {
       const nextLeads = await fetchLeadsRequest();
       setLeads(nextLeads);
+
+      if (usesPersistedAnalytics) {
+        setAnalytics((currentAnalytics) =>
+          syncAnalyticsWithLeads(currentAnalytics, nextLeads),
+        );
+      } else {
+        setAnalytics(buildMockConversationAnalytics(nextLeads, initialProducts));
+      }
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to refresh leads.",
@@ -161,6 +204,58 @@ export default function SellerWorkspace({
     }
   }
 
+  async function handleToggleLeadSaleConfirmation(targetLead: Lead) {
+    setErrorMessage(null);
+    setUpdatingLeadId(targetLead.id);
+
+    const previousLeads = leads;
+    const previousAnalytics = analytics;
+    const nextSaleConfirmedState = !targetLead.isSaleConfirmed;
+    const nextLeads = leads.map((lead) =>
+      lead.id === targetLead.id
+        ? { ...lead, isSaleConfirmed: nextSaleConfirmedState }
+        : lead,
+    );
+
+    setLeads(nextLeads);
+
+    if (usesPersistedAnalytics) {
+      setAnalytics(syncAnalyticsWithLeads(previousAnalytics, nextLeads));
+    } else {
+      setAnalytics(buildMockConversationAnalytics(nextLeads, initialProducts));
+    }
+
+    try {
+      const updatedLead = await updateLeadSaleConfirmationRequest(
+        targetLead.id,
+        nextSaleConfirmedState,
+      );
+      const syncedLeads = nextLeads.map((lead) =>
+        lead.id === updatedLead.id ? updatedLead : lead,
+      );
+
+      setLeads(syncedLeads);
+
+      if (usesPersistedAnalytics) {
+        setAnalytics((currentAnalytics) =>
+          syncAnalyticsWithLeads(currentAnalytics, syncedLeads),
+        );
+      } else {
+        setAnalytics(buildMockConversationAnalytics(syncedLeads, initialProducts));
+      }
+    } catch (error) {
+      setLeads(previousLeads);
+      setAnalytics(previousAnalytics);
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to update lead sale confirmation.",
+      );
+    } finally {
+      setUpdatingLeadId(null);
+    }
+  }
+
   const refreshDeviceSessions = useEffectEvent(() => {
     void loadDeviceSessions();
   });
@@ -203,6 +298,12 @@ export default function SellerWorkspace({
     };
   }, []);
 
+  const stats = [
+    { label: "Products", value: initialProducts.length, icon: Package },
+    { label: "Active Devices", value: deviceSessions.length, icon: Monitor },
+    { label: "Leads Captured", value: leads.length, icon: Users },
+  ];
+
   return (
     <>
       <main className="mx-auto max-w-5xl px-6 py-8">
@@ -211,6 +312,27 @@ export default function SellerWorkspace({
             {errorMessage}
           </div>
         ) : null}
+
+        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {stats.map((stat) => (
+            <motion.div
+              key={stat.label}
+              className="rounded-xl border border-border bg-card p-5"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-primary/10 p-2">
+                  <stat.icon className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="font-display ui-text-large font-bold">{stat.value}</p>
+                  <p className="ui-text-small text-muted-foreground">{stat.label}</p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
 
         <div className="mb-6 flex justify-center">
           <SlideTabs items={tabs} activeKey={activeTab} onChange={setActiveTab} />
@@ -236,11 +358,21 @@ export default function SellerWorkspace({
           ) : null}
 
           {activeTab === "dashboard" ? (
-            <SellerDashboardView leads={leads} products={initialProducts} />
+            <SellerDashboardView
+              analytics={analytics}
+              capturedContactCount={leads.length}
+              confirmedSaleCount={leads.filter((lead) => lead.isSaleConfirmed).length}
+              products={initialProducts}
+            />
           ) : null}
 
           {activeTab === "leads" ? (
-            <SellerLeadsView leads={leads} products={initialProducts} />
+            <SellerLeadsView
+              leads={leads}
+              onToggleSaleConfirmation={handleToggleLeadSaleConfirmation}
+              products={initialProducts}
+              updatingLeadId={updatingLeadId}
+            />
           ) : null}
         </div>
       </main>

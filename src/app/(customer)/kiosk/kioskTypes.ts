@@ -40,7 +40,6 @@ export interface ChatSessionMessagePayload {
 export interface CreateLeadPayload {
   customerEmail: string;
   customerName: string;
-  customerPhone?: string;
   chatSessionId?: string;
   productId: string;
 }

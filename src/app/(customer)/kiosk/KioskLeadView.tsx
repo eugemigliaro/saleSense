@@ -3,17 +3,15 @@
 import type { FormEvent } from "react";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Mail, Phone, UserCircle } from "lucide-react";
+import { ArrowRight, Mail, UserCircle } from "lucide-react";
 
 interface KioskLeadViewProps {
   customerEmail: string;
   customerName: string;
-  customerPhone: string;
   isSubmittingLead: boolean;
   leadError: string | null;
   onCustomerEmailChange: (value: string) => void;
   onCustomerNameChange: (value: string) => void;
-  onCustomerPhoneChange: (value: string) => void;
   onReset: () => void;
   onSubmit: () => void | Promise<void>;
 }
@@ -21,12 +19,10 @@ interface KioskLeadViewProps {
 export function KioskLeadView({
   customerEmail,
   customerName,
-  customerPhone,
   isSubmittingLead,
   leadError,
   onCustomerEmailChange,
   onCustomerNameChange,
-  onCustomerPhoneChange,
   onReset,
   onSubmit,
 }: KioskLeadViewProps) {
@@ -88,17 +84,6 @@ export function KioskLeadView({
               onChange={(event) => onCustomerEmailChange(event.target.value)}
               placeholder="Email address"
               required
-              className={`${inputClass} pl-11`}
-            />
-          </div>
-
-          <div className="relative">
-            <Phone className="kiosk-muted absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2" />
-            <input
-              type="tel"
-              value={customerPhone}
-              onChange={(event) => onCustomerPhoneChange(event.target.value)}
-              placeholder="Phone (optional)"
               className={`${inputClass} pl-11`}
             />
           </div>

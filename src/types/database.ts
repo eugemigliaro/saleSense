@@ -96,6 +96,91 @@ export interface Database {
           store_id?: string;
         };
       };
+      conversation_analytics: {
+        Insert: {
+          buy_probability?: number | null;
+          chat_session_id: string;
+          conversation_duration_seconds?: number | null;
+          conversation_ended_at?: string | null;
+          conversation_started_at: string;
+          created_at?: string;
+          faq_examples?: string[];
+          faq_topics?: string[];
+          feedback_score?: number | null;
+          feedback_sentiment?: string | null;
+          manual_sale_confirmed?: boolean;
+          message_count?: number;
+          product_id: string;
+          redirect_target_product_id?: string | null;
+          redirected_to_other_product?: boolean;
+          sale_outcome?: string;
+          store_id: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            columns: ["chat_session_id"];
+            foreignKeyName: "conversation_analytics_chat_session_id_fkey";
+            isOneToOne: true;
+            referencedColumns: ["id"];
+            referencedRelation: "chat_sessions";
+          },
+          {
+            columns: ["product_id"];
+            foreignKeyName: "conversation_analytics_product_id_fkey";
+            isOneToOne: false;
+            referencedColumns: ["id"];
+            referencedRelation: "products";
+          },
+          {
+            columns: ["redirect_target_product_id"];
+            foreignKeyName: "conversation_analytics_redirect_target_product_id_fkey";
+            isOneToOne: false;
+            referencedColumns: ["id"];
+            referencedRelation: "products";
+          },
+        ];
+        Row: {
+          buy_probability: number | null;
+          chat_session_id: string;
+          conversation_duration_seconds: number | null;
+          conversation_ended_at: string | null;
+          conversation_started_at: string;
+          created_at: string;
+          faq_examples: string[];
+          faq_topics: string[];
+          feedback_score: number | null;
+          feedback_sentiment: string | null;
+          manual_sale_confirmed: boolean;
+          message_count: number;
+          product_id: string;
+          redirect_target_product_id: string | null;
+          redirected_to_other_product: boolean;
+          sale_outcome: string;
+          store_id: string;
+          updated_at: string;
+        };
+        Update: {
+          buy_probability?: number | null;
+          chat_session_id?: string;
+          conversation_duration_seconds?: number | null;
+          conversation_ended_at?: string | null;
+          conversation_started_at?: string;
+          created_at?: string;
+          faq_examples?: string[];
+          faq_topics?: string[];
+          feedback_score?: number | null;
+          feedback_sentiment?: string | null;
+          manual_sale_confirmed?: boolean;
+          message_count?: number;
+          product_id?: string;
+          redirect_target_product_id?: string | null;
+          redirected_to_other_product?: boolean;
+          sale_outcome?: string;
+          store_id?: string;
+          updated_at?: string;
+        };
+      };
       device_sessions: {
         Insert: {
           claimed_at?: string | null;
@@ -152,17 +237,26 @@ export interface Database {
       leads: {
         Insert: {
           ai_summary?: string | null;
+          chat_session_id?: string | null;
           created_at?: string;
           customer_email: string;
           customer_name: string;
           customer_phone?: string | null;
           id?: string;
           inferred_interest?: string | null;
+          is_sale_confirmed?: boolean;
           next_best_product?: string | null;
           product_id: string;
           store_id: string;
         };
         Relationships: [
+          {
+            columns: ["chat_session_id"];
+            foreignKeyName: "leads_chat_session_id_fkey";
+            isOneToOne: false;
+            referencedColumns: ["id"];
+            referencedRelation: "chat_sessions";
+          },
           {
             columns: ["product_id"];
             foreignKeyName: "leads_product_id_fkey";
@@ -173,24 +267,28 @@ export interface Database {
         ];
         Row: {
           ai_summary: string | null;
+          chat_session_id: string | null;
           created_at: string;
           customer_email: string;
           customer_name: string;
           customer_phone: string | null;
           id: string;
           inferred_interest: string | null;
+          is_sale_confirmed: boolean;
           next_best_product: string | null;
           product_id: string;
           store_id: string;
         };
         Update: {
           ai_summary?: string | null;
+          chat_session_id?: string | null;
           created_at?: string;
           customer_email?: string;
           customer_name?: string;
           customer_phone?: string | null;
           id?: string;
           inferred_interest?: string | null;
+          is_sale_confirmed?: boolean;
           next_best_product?: string | null;
           product_id?: string;
           store_id?: string;

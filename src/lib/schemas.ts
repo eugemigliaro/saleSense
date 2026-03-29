@@ -196,6 +196,16 @@ export const createLeadSchema = z
   })
   .strict();
 
+export const leadIdParamsSchema = z.object({
+  id: z.string().uuid("Lead id must be a valid UUID."),
+});
+
+export const updateLeadSaleConfirmationSchema = z
+  .object({
+    isSaleConfirmed: z.boolean(),
+  })
+  .strict();
+
 export const createChatSessionSchema = z
   .object({
     deviceSessionId: z.string().uuid("Device session id must be a valid UUID."),
@@ -246,6 +256,10 @@ export interface CreateLeadInput {
   productId: string;
 }
 
+export interface UpdateLeadSaleConfirmationInput {
+  isSaleConfirmed: boolean;
+}
+
 export interface SendChatMessageInput {
   content: string;
 }
@@ -267,6 +281,14 @@ export function normalizeCreateLeadInput(
     inferredInterest: value.inferredInterest ?? null,
     nextBestProduct: value.nextBestProduct ?? null,
     productId: value.productId,
+  };
+}
+
+export function normalizeUpdateLeadSaleConfirmationInput(
+  value: z.infer<typeof updateLeadSaleConfirmationSchema>,
+): UpdateLeadSaleConfirmationInput {
+  return {
+    isSaleConfirmed: value.isSaleConfirmed,
   };
 }
 
