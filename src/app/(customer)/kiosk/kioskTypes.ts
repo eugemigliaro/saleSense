@@ -5,7 +5,7 @@ import type {
 } from "@/types/api";
 import type { ChatMessage } from "@/types/domain";
 
-export type KioskState = "idle" | "chat" | "lead" | "thanks";
+export type KioskState = "idle" | "chat" | "lead" | "feedback" | "thanks";
 export type VoiceSessionState =
   | "idle"
   | "connecting"
@@ -41,7 +41,6 @@ export interface ChatSessionMessagePayload {
 export interface CreateLeadPayload {
   customerEmail: string;
   customerName: string;
-  customerPhone?: string;
   chatSessionId?: string;
   productId: string;
 }

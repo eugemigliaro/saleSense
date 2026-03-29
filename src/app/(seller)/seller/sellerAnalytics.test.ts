@@ -5,7 +5,7 @@ import type { ConversationAnalytics, Product } from "@/types/domain";
 import { buildSellerDashboardMetrics } from "./sellerAnalytics";
 
 describe("buildSellerDashboardMetrics", () => {
-  it("aggregates FAQ topics, feedback, and high-intent sales from conversation analytics", () => {
+  it("aggregates FAQ topics, star feedback, and manual sales from conversation analytics", () => {
     const products: Product[] = [
       {
         brand: "Apple",
@@ -94,9 +94,11 @@ describe("buildSellerDashboardMetrics", () => {
     expect(buildSellerDashboardMetrics(analytics, products)).toEqual({
       averageConversationDurationSeconds: 380,
       clientFeedback: [
-        { count: 1, label: "Negative" },
-        { count: 1, label: "Neutral" },
-        { count: 1, label: "Positive" },
+        { count: 1, label: "5 stars" },
+        { count: 0, label: "4 stars" },
+        { count: 1, label: "3 stars" },
+        { count: 1, label: "2 stars" },
+        { count: 0, label: "1 star" },
       ],
       confirmedSalesCount: 1,
       confirmedSalesRate: 1 / 3,
@@ -116,10 +118,6 @@ describe("buildSellerDashboardMetrics", () => {
           label: "Camera quality",
         },
       ],
-      highIntentAiInferredSales: 0,
-      highIntentConversationCount: 2,
-      highIntentConversationRate: 2 / 3,
-      highIntentStoreConfirmedSales: 2,
       redirectedConversationCount: 1,
       redirectedConversationRate: 1 / 3,
       totalConversations: 3,

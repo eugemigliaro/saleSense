@@ -3,31 +3,27 @@
 import type { FormEvent } from "react";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Mail, Phone, UserCircle } from "lucide-react";
+import { ArrowRight, Mail, UserCircle } from "lucide-react";
 
 interface KioskLeadViewProps {
   customerEmail: string;
   customerName: string;
-  customerPhone: string;
   isSubmittingLead: boolean;
   leadError: string | null;
   onCustomerEmailChange: (value: string) => void;
   onCustomerNameChange: (value: string) => void;
-  onCustomerPhoneChange: (value: string) => void;
-  onReset: () => void;
+  onSkip: () => void;
   onSubmit: () => void | Promise<void>;
 }
 
 export function KioskLeadView({
   customerEmail,
   customerName,
-  customerPhone,
   isSubmittingLead,
   leadError,
   onCustomerEmailChange,
   onCustomerNameChange,
-  onCustomerPhoneChange,
-  onReset,
+  onSkip,
   onSubmit,
 }: KioskLeadViewProps) {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -91,18 +87,6 @@ export function KioskLeadView({
               className={`${inputClass} pl-11`}
             />
           </div>
-
-          <div className="relative">
-            <Phone className="kiosk-muted absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2" />
-            <input
-              type="tel"
-              value={customerPhone}
-              onChange={(event) => onCustomerPhoneChange(event.target.value)}
-              placeholder="Phone number (optional)"
-              className={`${inputClass} pl-11`}
-            />
-          </div>
-
           <button
             type="submit"
             disabled={isSubmittingLead}
@@ -114,11 +98,11 @@ export function KioskLeadView({
         </form>
 
         <button
-          onClick={onReset}
+          onClick={onSkip}
           className="kiosk-muted hover:kiosk-text mt-3 w-full py-2 text-center ui-text-small transition-colors"
           type="button"
         >
-          No thanks, skip
+          Continue without leaving my info
         </button>
       </motion.div>
     </motion.div>

@@ -4,6 +4,7 @@ import {
   completeChatSession,
   getChatSessionContextById,
 } from "@/lib/chat-sessions";
+import { upsertCompletedConversationAnalytics } from "@/lib/conversationAnalytics";
 import { requireKioskDeviceSessionAccess } from "@/lib/kiosk-auth";
 
 import { POST } from "./route";
@@ -13,6 +14,10 @@ vi.mock("@/lib/chat-sessions", () => ({
   getChatSessionContextById: vi.fn(),
 }));
 
+vi.mock("@/lib/conversationAnalytics", () => ({
+  upsertCompletedConversationAnalytics: vi.fn(),
+}));
+
 vi.mock("@/lib/kiosk-auth", () => ({
   KioskAccessError: class KioskAccessError extends Error {},
   requireKioskDeviceSessionAccess: vi.fn(),
@@ -20,6 +25,9 @@ vi.mock("@/lib/kiosk-auth", () => ({
 
 const mockCompleteChatSession = vi.mocked(completeChatSession);
 const mockGetChatSessionContextById = vi.mocked(getChatSessionContextById);
+const mockUpsertCompletedConversationAnalytics = vi.mocked(
+  upsertCompletedConversationAnalytics,
+);
 const mockRequireKioskDeviceSessionAccess = vi.mocked(
   requireKioskDeviceSessionAccess,
 );
@@ -65,18 +73,35 @@ describe("/api/v1/chat-sessions/[id]/complete", () => {
       state: "engaged",
       store_id: "store-1",
     });
+    mockUpsertCompletedConversationAnalytics.mockResolvedValue(undefined);
   });
 
   it("returns 404 when the chat session does not exist", async () => {
     mockCompleteChatSession.mockResolvedValueOnce(null);
 
-    const response = await POST(new Request("http://localhost"), {
-      params: Promise.resolve({
-        id: "33333333-3333-4333-8333-333333333333",
+    const response = await POST(
+      new Request("http://localhost", {
+        body: JSON.stringify({}),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
       }),
-    });
+      {
+        params: Promise.resolve({
+          id: "33333333-3333-4333-8333-333333333333",
+        }),
+      },
+    );
 
     expect(response.status).toBe(404);
+    expect(mockUpsertCompletedConversationAnalytics).toHaveBeenCalledWith({
+      chatSessionId: "33333333-3333-4333-8333-333333333333",
+      feedbackScore: null,
+      productId: "11111111-1111-4111-8111-111111111111",
+      startedAt: "2026-03-28T08:21:00.000Z",
+      storeId: "store-1",
+    });
     await expect(response.json()).resolves.toEqual({
       error: {
         code: "not_found",
@@ -85,7 +110,7 @@ describe("/api/v1/chat-sessions/[id]/complete", () => {
     });
   });
 
-  it("returns the completed chat session", async () => {
+  it("returns the completed chat session with a persisted feedback score", async () => {
     mockCompleteChatSession.mockResolvedValueOnce({
       deviceSessionId: "22222222-2222-4222-8222-222222222222",
       id: "33333333-3333-4333-8333-333333333333",
@@ -96,13 +121,31 @@ describe("/api/v1/chat-sessions/[id]/complete", () => {
       storeId: "store-1",
     });
 
-    const response = await POST(new Request("http://localhost"), {
-      params: Promise.resolve({
-        id: "33333333-3333-4333-8333-333333333333",
+    const response = await POST(
+      new Request("http://localhost", {
+        body: JSON.stringify({
+          feedbackScore: 5,
+        }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
       }),
-    });
+      {
+        params: Promise.resolve({
+          id: "33333333-3333-4333-8333-333333333333",
+        }),
+      },
+    );
 
     expect(response.status).toBe(200);
+    expect(mockUpsertCompletedConversationAnalytics).toHaveBeenCalledWith({
+      chatSessionId: "33333333-3333-4333-8333-333333333333",
+      feedbackScore: 5,
+      productId: "11111111-1111-4111-8111-111111111111",
+      startedAt: "2026-03-28T08:21:00.000Z",
+      storeId: "store-1",
+    });
     expect(mockCompleteChatSession).toHaveBeenCalledWith(
       "33333333-3333-4333-8333-333333333333",
     );

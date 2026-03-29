@@ -1,6 +1,6 @@
 "use client";
 
-import { Mail, Phone } from "lucide-react";
+import { Mail } from "lucide-react";
 
 import type { Lead, Product } from "@/types/domain";
 
@@ -81,14 +81,10 @@ export function SellerLeadsView({
                   ) : null}
                 </div>
 
-                <div className="mt-4 grid gap-3 ui-text-small text-muted-foreground sm:grid-cols-2">
+                <div className="mt-4 grid gap-3 ui-text-small text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-primary/80" />
                     <span className="truncate">{lead.customerEmail}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-primary/80" />
-                    <span>{lead.customerPhone ?? "Phone not provided"}</span>
                   </div>
                 </div>
 

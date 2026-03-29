@@ -212,6 +212,12 @@ export const createChatSessionSchema = z
   })
   .strict();
 
+export const completeChatSessionSchema = z
+  .object({
+    feedbackScore: z.number().int().min(1).max(5).optional(),
+  })
+  .strict();
+
 const sendChatMessageBodySchema = z
   .object({
     content: requiredText("Message", CHAT_MESSAGE_MAX_LENGTH),
@@ -264,6 +270,10 @@ export interface SendChatMessageInput {
   content: string;
 }
 
+export interface CompleteChatSessionInput {
+  feedbackScore: number | null;
+}
+
 export interface CreateLiveToolCallInput {
   callId: string;
   customerTranscript: string;
@@ -297,6 +307,14 @@ export function normalizeSendChatMessageInput(
 ): SendChatMessageInput {
   return {
     content: value.content,
+  };
+}
+
+export function normalizeCompleteChatSessionInput(
+  value: z.infer<typeof completeChatSessionSchema>,
+): CompleteChatSessionInput {
+  return {
+    feedbackScore: value.feedbackScore ?? null,
   };
 }
 

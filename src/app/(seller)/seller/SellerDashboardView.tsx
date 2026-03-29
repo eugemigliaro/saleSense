@@ -2,13 +2,12 @@
 
 import {
   ArrowRightLeft,
-  BadgePercent,
   Clock3,
   CircleCheckBig,
   MessageSquareQuote,
   MessagesSquare,
   PieChart,
-  SmilePlus,
+  Star,
 } from "lucide-react";
 
 import type { ConversationAnalytics, Product } from "@/types/domain";
@@ -59,7 +58,12 @@ function BreakdownBars({
           <div className="h-2 rounded-full bg-muted">
             <div
               className="h-full rounded-full bg-primary"
-              style={{ width: `${Math.max((item.count / maxCount) * 100, 8)}%` }}
+              style={{
+                width:
+                  item.count === 0
+                    ? "0%"
+                    : `${Math.max((item.count / maxCount) * 100, 8)}%`,
+              }}
             />
           </div>
         </div>
@@ -161,16 +165,6 @@ export function SellerDashboardView({
     capturedContactCount,
     confirmedSaleCount,
   });
-  const highIntentSalesBreakdown = [
-    {
-      count: metrics.highIntentStoreConfirmedSales,
-      label: "Store-confirmed sales",
-    },
-    {
-      count: metrics.highIntentAiInferredSales,
-      label: "AI-inferred sales",
-    },
-  ];
   const contactChannelBreakdown = [
     {
       color: "rgb(37 99 235)",
@@ -341,45 +335,12 @@ export function SellerDashboardView({
         <article className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <div className="mb-5 flex items-center gap-3">
             <div className="rounded-xl bg-primary/10 p-2 text-primary">
-              <BadgePercent className="h-4 w-4" />
+              <Star className="h-4 w-4" />
             </div>
             <div>
-              <h3 className="font-medium text-foreground">
-                High probability of customer buying
-              </h3>
+              <h3 className="font-medium text-foreground">Client star ratings</h3>
               <p className="ui-text-small text-muted-foreground">
-                Conversations with a modeled buy probability above 80%.
-              </p>
-            </div>
-          </div>
-
-          <div className="mb-6 flex items-end justify-between gap-4">
-            <div>
-              <p className="font-display ui-text-large font-semibold text-foreground">
-                {metrics.highIntentConversationCount}
-              </p>
-              <p className="ui-text-small text-muted-foreground">
-                {formatPercentage(metrics.highIntentConversationRate)} of all
-                conversations
-              </p>
-            </div>
-            <p className="ui-text-small text-muted-foreground">
-              Includes both AI-inferred and store-confirmed outcomes.
-            </p>
-          </div>
-
-          <BreakdownBars items={highIntentSalesBreakdown} />
-        </article>
-
-        <article className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="rounded-xl bg-primary/10 p-2 text-primary">
-              <SmilePlus className="h-4 w-4" />
-            </div>
-            <div>
-              <h3 className="font-medium text-foreground">Client feedback</h3>
-              <p className="ui-text-small text-muted-foreground">
-                Feedback sentiment breakdown captured after conversations.
+                Distribution of 1-to-5-star ratings captured after conversations.
               </p>
             </div>
           </div>
