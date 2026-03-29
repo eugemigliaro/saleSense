@@ -144,6 +144,21 @@
 }
 
 @layer utilities {
+  .ui-text-small {
+    font-size: 1rem;
+    line-height: 1.45;
+  }
+
+  .ui-text-medium {
+    font-size: 1.14rem;
+    line-height: 1.45;
+  }
+
+  .ui-text-large {
+    font-size: 1.57rem;
+    line-height: 1.2;
+  }
+
   .font-display {
     font-family: var(--font-display);
   }

@@ -39,7 +39,7 @@ export function KioskIdleView({
 
       <div className="relative z-10 flex flex-col items-center gap-8 px-8 text-center">
         <motion.p
-          className="kiosk-muted text-sm font-medium uppercase tracking-[0.3em]"
+          className="kiosk-muted ui-text-small font-medium uppercase tracking-[0.3em]"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
@@ -81,7 +81,7 @@ export function KioskIdleView({
             <div className="kiosk-pulse-ring absolute inset-0 rounded-full border-2 border-primary" />
           </div>
 
-          <p className="kiosk-muted text-lg font-light">
+          <p className="kiosk-muted ui-text-large font-light">
             Tap anywhere to start a voice-guided demo
           </p>
         </motion.div>

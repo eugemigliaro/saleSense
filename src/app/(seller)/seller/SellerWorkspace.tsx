@@ -101,7 +101,7 @@ export default function SellerWorkspace({
   return (
     <main className="mx-auto max-w-5xl px-6 py-8">
       {errorMessage ? (
-        <div className="mb-6 rounded-xl border border-destructive/20 bg-destructive/8 px-4 py-3 text-sm text-destructive">
+        <div className="mb-6 rounded-xl border border-destructive/20 bg-destructive/8 px-4 py-3 ui-text-small text-destructive">
           {errorMessage}
         </div>
       ) : null}
@@ -119,8 +119,8 @@ export default function SellerWorkspace({
                 <stat.icon className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <p className="font-display text-2xl font-bold">{stat.value}</p>
-                <p className="text-sm text-muted-foreground">{stat.label}</p>
+                <p className="font-display ui-text-large font-bold">{stat.value}</p>
+                <p className="ui-text-small text-muted-foreground">{stat.label}</p>
               </div>
             </div>
           </motion.div>

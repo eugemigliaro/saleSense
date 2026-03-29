@@ -12,7 +12,7 @@ export function KioskThanksView() {
     >
       <div className="text-center">
         <div className="mb-4 text-6xl text-white">✓</div>
-        <h2 className="kiosk-text font-display text-3xl font-bold">Thank you!</h2>
+        <h2 className="kiosk-text font-display ui-text-large font-bold">Thank you!</h2>
         <p className="kiosk-muted mt-2">A team member will reach out soon.</p>
       </div>
     </motion.div>

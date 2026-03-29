@@ -36,7 +36,7 @@ export function KioskLeadView({
   }
 
   const inputClass =
-    "w-full kiosk-surface kiosk-text rounded-xl px-5 py-3.5 text-[15px] placeholder:text-kiosk-muted focus:outline-none focus:ring-2 focus:ring-primary/50";
+    "w-full kiosk-surface kiosk-text rounded-xl px-5 py-3.5 ui-text-medium placeholder:text-kiosk-muted focus:outline-none focus:ring-2 focus:ring-primary/50";
 
   return (
     <motion.div
@@ -55,14 +55,14 @@ export function KioskLeadView({
           <div className="kiosk-gradient-bg kiosk-glow mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full">
             <UserCircle className="h-8 w-8 text-primary-foreground" />
           </div>
-          <h2 className="kiosk-text font-display text-2xl font-bold">Stay in touch?</h2>
-          <p className="kiosk-muted mt-2 text-sm">
+          <h2 className="kiosk-text font-display ui-text-large font-bold">Stay in touch?</h2>
+          <p className="kiosk-muted mt-2 ui-text-small">
             Leave your info and we&apos;ll follow up with personalized recommendations.
           </p>
         </div>
 
         {leadError ? (
-          <div className="mb-4 rounded-xl border border-amber-400/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+          <div className="mb-4 rounded-xl border border-amber-400/20 bg-amber-300/10 px-4 py-3 ui-text-small text-amber-100">
             {leadError}
           </div>
         ) : null}
@@ -115,7 +115,7 @@ export function KioskLeadView({
 
         <button
           onClick={onReset}
-          className="kiosk-muted hover:kiosk-text mt-3 w-full py-2 text-center text-sm transition-colors"
+          className="kiosk-muted hover:kiosk-text mt-3 w-full py-2 text-center ui-text-small transition-colors"
           type="button"
         >
           No thanks, skip

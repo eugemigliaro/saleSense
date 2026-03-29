@@ -19,13 +19,13 @@ export default async function SellerPage() {
   return (
     <div className="min-h-screen bg-background">
       <header className="flex items-center justify-between border-b border-border px-6 py-4">
-        <Link href="/seller" className="font-display text-xl font-bold text-gradient">
+        <Link href="/seller" className="font-display ui-text-large font-bold text-gradient">
           SaleSense
         </Link>
         <form action={signOutSellerAction}>
           <button
             type="submit"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="ui-text-small text-muted-foreground transition-colors hover:text-foreground"
           >
             Sign out
           </button>

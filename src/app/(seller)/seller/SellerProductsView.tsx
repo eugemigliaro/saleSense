@@ -20,10 +20,10 @@ export function SellerProductsView({
   return (
     <section>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="font-display text-lg font-semibold">Products</h2>
+        <h2 className="font-display ui-text-large font-semibold">Products</h2>
         <Link
           href="/seller/products/new"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 ui-text-small font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
           <Plus className="h-4 w-4" />
           Add Product
@@ -32,7 +32,7 @@ export function SellerProductsView({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {products.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border bg-card px-4 py-5 text-sm text-muted-foreground sm:col-span-2 xl:col-span-3">
+          <div className="rounded-xl border border-dashed border-border bg-card px-4 py-5 ui-text-small text-muted-foreground sm:col-span-2 xl:col-span-3">
             No products yet. Add one to launch a kiosk session.
           </div>
         ) : (
@@ -60,14 +60,14 @@ export function SellerProductsView({
               <div className="flex flex-1 flex-col p-4">
                 <div>
                   <h3 className="font-semibold">{product.name}</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="ui-text-small text-muted-foreground">
                     {product.brand} · {product.category}
                   </p>
                 </div>
                 <div className="mt-auto flex items-center gap-2 pt-4">
                   <Link
                     href={`/seller/products/${product.id}`}
-                    className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="rounded-lg border border-border px-3 py-1.5 ui-text-small text-muted-foreground transition-colors hover:text-foreground"
                   >
                     Edit
                   </Link>
@@ -75,7 +75,7 @@ export function SellerProductsView({
                     type="button"
                     onClick={() => void onLaunch(product)}
                     disabled={launchingProductId === product.id}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 ui-text-small font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                     {launchingProductId === product.id ? "Launching" : "Launch"}

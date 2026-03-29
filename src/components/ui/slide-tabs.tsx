@@ -39,7 +39,7 @@ export function SlideTabs<T extends string>({
                 type="button"
                 onClick={() => onChange(item.key)}
                 className={cn(
-                  "relative rounded-xl px-4 py-2 text-sm font-medium transition-colors sm:px-5",
+                  "relative rounded-xl px-4 py-2 ui-text-medium font-medium transition-colors sm:px-5",
                   isActive
                     ? "text-primary-foreground"
                     : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",

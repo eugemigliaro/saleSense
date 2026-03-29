@@ -26,22 +26,22 @@ export default async function SellerSignInPage({
       <div className="flex min-h-screen items-center justify-center">
         <div className="w-full max-w-sm">
           <div className="mb-8 text-center">
-            <h1 className="text-gradient font-display text-3xl font-bold">
+            <h1 className="text-gradient font-display ui-text-large font-bold">
               SaleSense
             </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 ui-text-small text-muted-foreground">
               Store manager login
             </p>
           </div>
 
           {message ? (
-            <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+            <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 ui-text-small text-emerald-900">
               {message}
             </div>
           ) : null}
 
           {error ? (
-            <div className="mb-4 rounded-xl border border-destructive/20 bg-destructive/8 px-4 py-3 text-sm text-destructive">
+            <div className="mb-4 rounded-xl border border-destructive/20 bg-destructive/8 px-4 py-3 ui-text-small text-destructive">
               {error}
             </div>
           ) : null}
@@ -53,7 +53,7 @@ export default async function SellerSignInPage({
               <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 autoComplete="email"
-                className="w-full rounded-xl border border-input bg-background px-10 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full rounded-xl border border-input bg-background px-10 py-3 ui-text-small focus:outline-none focus:ring-2 focus:ring-primary/50"
                 id="email"
                 name="email"
                 placeholder="Email"
@@ -66,7 +66,7 @@ export default async function SellerSignInPage({
               <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 autoComplete="current-password"
-                className="w-full rounded-xl border border-input bg-background px-10 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full rounded-xl border border-input bg-background px-10 py-3 ui-text-small focus:outline-none focus:ring-2 focus:ring-primary/50"
                 id="password"
                 name="password"
                 placeholder="Password"
