@@ -348,7 +348,7 @@ export function SellerDashboardView({
           <BreakdownBars items={metrics.clientFeedback} />
         </article>
 
-        <article className="rounded-2xl border border-border bg-card p-5 shadow-sm xl:col-span-2">
+        <article className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <div className="mb-5 flex items-center gap-3">
             <div className="rounded-xl bg-primary/10 p-2 text-primary">
               <MessageSquareQuote className="h-4 w-4" />
@@ -368,7 +368,7 @@ export function SellerDashboardView({
               FAQ topics will appear once conversation analytics are available.
             </p>
           ) : (
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="space-y-4">
               {metrics.faqTopics.map((topic) => (
                 <div
                   key={topic.label}
