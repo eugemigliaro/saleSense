@@ -190,6 +190,7 @@ export async function detectChatResearchIntent(
       {
         responseJsonSchema: CHAT_RESEARCH_DECISION_JSON_SCHEMA,
         systemInstruction: CHAT_RESEARCH_DECISION_SYSTEM_INSTRUCTION,
+        thinkingLevel: "minimal",
       },
     );
 
@@ -277,6 +278,7 @@ export async function gatherExternalResearch(input: {
       buildChatResearchPrompt(input),
       {
         systemInstruction: CHAT_RESEARCH_SYSTEM_INSTRUCTION,
+        thinkingLevel: "minimal",
         tools: buildToolConfig(input.tools),
       },
     );

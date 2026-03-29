@@ -8,6 +8,7 @@ import {
   touchChatSession,
 } from "@/lib/chat-sessions";
 import { touchDeviceSession } from "@/lib/device-sessions";
+import { hasLeadForChatSession } from "@/lib/leads";
 import type { ChatMessageGrounding, LeadCaptureInstruction, LeadCaptureState } from "@/types/api";
 import type { ChatMessage, ChatSession } from "@/types/domain";
 
@@ -50,6 +51,13 @@ export async function resolveSalesTurn(
     throw new ChatSessionInactiveError();
   }
 
+  const effectiveLeadCaptureState = (await hasLeadForChatSession(
+    chatSessionId,
+    chatSessionContext.session.storeId,
+  ))
+    ? "submitted"
+    : leadCaptureState;
+
   const userMessage = await appendChatMessage(
     chatSessionId,
     "user",
@@ -59,7 +67,7 @@ export async function resolveSalesTurn(
   const assistantReply = await generateSalesAssistantReply({
     activeProduct: chatSessionContext.product,
     history,
-    leadCaptureState,
+    leadCaptureState: effectiveLeadCaptureState,
     storeId: chatSessionContext.session.storeId,
   });
   const assistantMessage = await appendChatMessage(

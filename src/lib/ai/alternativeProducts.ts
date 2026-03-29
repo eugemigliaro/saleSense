@@ -185,6 +185,7 @@ export async function selectAlternativeProductIds(input: {
       {
         responseJsonSchema: ALTERNATIVE_SELECTION_JSON_SCHEMA,
         systemInstruction: ALTERNATIVE_SELECTION_SYSTEM_INSTRUCTION,
+        thinkingLevel: "minimal",
       },
     );
     const selection = alternativeSelectionSchema.parse(

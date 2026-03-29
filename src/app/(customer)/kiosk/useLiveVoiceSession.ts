@@ -161,6 +161,7 @@ export function useLiveVoiceSession({
   const connectingRef = useRef(false);
   const shuttingDownRef = useRef(false);
   const activeChatSessionIdRef = useRef<string | null>(null);
+  const leadCaptureStateRef = useRef<KioskLeadCaptureState>(leadCaptureState);
   const pendingTextTurnRef = useRef<PendingTextTurn | null>(null);
   const bufferedAudioChunksRef = useRef<LiveRealtimeAudioInput[]>([]);
   const hasDetectedSpeechRef = useRef(false);
@@ -168,6 +169,8 @@ export function useLiveVoiceSession({
   const detectedSpeechChunkCountRef = useRef(0);
   const autoSubmitInFlightRef = useRef(false);
   const cleanupSessionRef = useRef<() => Promise<void>>(async () => undefined);
+
+  leadCaptureStateRef.current = leadCaptureState;
 
   function resetPlaybackState() {
     playbackCursorRef.current = 0;
@@ -304,7 +307,7 @@ export function useLiveVoiceSession({
         const result = await sendKioskLiveToolCall(activeChatSessionId, {
           callId: functionCall.id ?? crypto.randomUUID(),
           customerTranscript,
-          leadCaptureState,
+          leadCaptureState: leadCaptureStateRef.current,
         });
 
         const pendingUserMessageId =

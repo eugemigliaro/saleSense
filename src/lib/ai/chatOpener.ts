@@ -85,6 +85,7 @@ export async function generateChatOpener(product: Product) {
       {
         responseJsonSchema: CHAT_OPENER_RESPONSE_JSON_SCHEMA,
         systemInstruction: CHAT_OPENER_SYSTEM_INSTRUCTION,
+        thinkingLevel: "minimal",
       },
     );
 

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 
 import { getGeminiApiKey, getGeminiModel } from "@/lib/env";
 
@@ -14,6 +14,7 @@ export interface GeminiToolDefinition {
 interface GenerateGeminiBaseOptions {
   model?: string;
   systemInstruction?: string;
+  thinkingLevel?: GeminiThinkingLevel;
   tools?: GeminiToolDefinition[];
 }
 
@@ -31,6 +32,8 @@ export interface GeminiGenerateJsonResult<T> extends GeminiGenerateTextResult {
   data: T;
 }
 
+export type GeminiThinkingLevel = "minimal" | "low" | "medium" | "high";
+
 function getClient() {
   if (!cachedClient) {
     cachedClient = new GoogleGenAI({
@@ -43,6 +46,35 @@ function getClient() {
 
 function getModel(model?: string) {
   return model ?? getGeminiModel();
+}
+
+function resolveThinkingLevel(thinkingLevel?: GeminiThinkingLevel) {
+  switch (thinkingLevel) {
+    case "minimal":
+      return ThinkingLevel.MINIMAL;
+    case "low":
+      return ThinkingLevel.LOW;
+    case "medium":
+      return ThinkingLevel.MEDIUM;
+    case "high":
+      return ThinkingLevel.HIGH;
+    default:
+      return undefined;
+  }
+}
+
+function buildThinkingConfig(thinkingLevel?: GeminiThinkingLevel) {
+  const resolvedThinkingLevel = resolveThinkingLevel(thinkingLevel);
+
+  if (!resolvedThinkingLevel) {
+    return {};
+  }
+
+  return {
+    thinkingConfig: {
+      thinkingLevel: resolvedThinkingLevel,
+    },
+  };
 }
 
 function parseJsonText(text: string) {
@@ -90,6 +122,7 @@ export async function generateGeminiJson<T>(
     model,
     responseJsonSchema,
     systemInstruction,
+    thinkingLevel,
     tools,
   }: GenerateGeminiJsonOptions,
 ) {
@@ -98,6 +131,7 @@ export async function generateGeminiJson<T>(
     const response = await client.models.generateContent({
       config: {
         ...(systemInstruction ? { systemInstruction } : {}),
+        ...buildThinkingConfig(thinkingLevel),
         ...(tools ? { tools } : {}),
         responseJsonSchema,
         responseMimeType: "application/json",
@@ -118,6 +152,7 @@ export async function generateGeminiJson<T>(
           systemInstruction,
           responseJsonSchema,
         ),
+        ...buildThinkingConfig(thinkingLevel),
         tools,
       },
       contents: prompt,
@@ -134,6 +169,7 @@ export async function generateGeminiJsonWithMetadata<T>(
     model,
     responseJsonSchema,
     systemInstruction,
+    thinkingLevel,
     tools,
   }: GenerateGeminiJsonOptions,
 ): Promise<GeminiGenerateJsonResult<T>> {
@@ -142,6 +178,7 @@ export async function generateGeminiJsonWithMetadata<T>(
     const response = await client.models.generateContent({
       config: {
         ...(systemInstruction ? { systemInstruction } : {}),
+        ...buildThinkingConfig(thinkingLevel),
         ...(tools ? { tools } : {}),
         responseJsonSchema,
         responseMimeType: "application/json",
@@ -168,6 +205,7 @@ export async function generateGeminiJsonWithMetadata<T>(
           systemInstruction,
           responseJsonSchema,
         ),
+        ...buildThinkingConfig(thinkingLevel),
         tools,
       },
       contents: prompt,
@@ -186,12 +224,13 @@ export async function generateGeminiJsonWithMetadata<T>(
 
 export async function generateGeminiText(
   prompt: string,
-  { model, systemInstruction, tools }: GenerateGeminiBaseOptions = {},
+  { model, systemInstruction, thinkingLevel, tools }: GenerateGeminiBaseOptions = {},
 ): Promise<GeminiGenerateTextResult> {
   const client = getClient();
   const response = await client.models.generateContent({
     config: {
       ...(systemInstruction ? { systemInstruction } : {}),
+      ...buildThinkingConfig(thinkingLevel),
       ...(tools ? { tools } : {}),
     },
     contents: prompt,

@@ -83,20 +83,29 @@ export function useKioskExperience({
   const [isVoiceDefaultEnabled, setIsVoiceDefaultEnabled] = useState(true);
   const [activityTick, setActivityTick] = useState(0);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const inlineLeadCaptureStateRef = useRef<KioskLeadCaptureState>("idle");
   const chatSessionRequestRef = useRef<Promise<LiveChatSessionResult | null> | null>(
     null,
   );
   const typingTimeoutRef = useRef<number | null>(null);
 
+  function updateInlineLeadCaptureState(nextState: KioskLeadCaptureState) {
+    inlineLeadCaptureStateRef.current = nextState;
+    setInlineLeadCaptureState(nextState);
+  }
+
   function applyLeadCaptureInstruction(
     instruction: LeadCaptureInstruction | null,
   ) {
-    if (!instruction?.shouldPrompt) {
+    if (
+      !instruction?.shouldPrompt ||
+      inlineLeadCaptureStateRef.current !== "idle"
+    ) {
       return;
     }
 
     setInlineLeadCaptureInstruction(instruction);
-    setInlineLeadCaptureState("prompted");
+    updateInlineLeadCaptureState("prompted");
     setInlineLeadCaptureError(null);
   }
 
@@ -175,7 +184,7 @@ export function useKioskExperience({
     setInlineLeadCaptureEmail("");
     setInlineLeadCaptureError(null);
     setInlineLeadCaptureInstruction(null);
-    setInlineLeadCaptureState("idle");
+    updateInlineLeadCaptureState("idle");
     setFeedbackError(null);
     setIsSubmittingInlineLead(false);
     setIsSubmittingFeedback(false);
@@ -423,7 +432,7 @@ export function useKioskExperience({
     setInlineLeadCaptureEmail("");
     setInlineLeadCaptureError(null);
     setInlineLeadCaptureInstruction(null);
-    setInlineLeadCaptureState("idle");
+    updateInlineLeadCaptureState("idle");
     setFeedbackError(null);
     setMessages([]);
     setGroundingByMessageId({});
@@ -659,7 +668,7 @@ export function useKioskExperience({
         productId,
       });
       setInlineLeadCaptureEmail(normalizedEmail);
-      setInlineLeadCaptureState("submitted");
+      updateInlineLeadCaptureState("submitted");
     } catch (error) {
       setInlineLeadCaptureError(
         error instanceof Error
@@ -675,7 +684,7 @@ export function useKioskExperience({
     recordConversationActivity();
     setInlineLeadCaptureError(null);
     setInlineLeadCaptureInstruction(null);
-    setInlineLeadCaptureState("dismissed");
+    updateInlineLeadCaptureState("dismissed");
   }
 
   async function skipFeedback() {

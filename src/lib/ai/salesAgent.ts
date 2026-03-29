@@ -426,6 +426,7 @@ async function detectLeadCaptureIntent(input: LeadCaptureIntentInput) {
       {
         responseJsonSchema: LEAD_CAPTURE_INTENT_JSON_SCHEMA,
         systemInstruction: LEAD_CAPTURE_INTENT_SYSTEM_INSTRUCTION,
+        thinkingLevel: "minimal",
       },
     );
 
@@ -631,6 +632,7 @@ export async function generateSalesAgentDraftWithGemini(input: SalesAgentInput) 
     {
       responseJsonSchema: SALES_AGENT_RESPONSE_JSON_SCHEMA,
       systemInstruction: SALES_AGENT_SYSTEM_INSTRUCTION,
+      thinkingLevel: "low",
     },
   );
 

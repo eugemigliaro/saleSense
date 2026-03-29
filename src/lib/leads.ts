@@ -192,6 +192,27 @@ export async function createLeadForProduct(input: CreateLeadInput) {
   return mapLeadRow(asLeadRow(data));
 }
 
+export async function hasLeadForChatSession(
+  chatSessionId: string,
+  storeId: string,
+) {
+  const supabase = createAdminSupabaseClient();
+  const { data, error } = await supabase
+    .from("leads")
+    .select("id")
+    .eq("chat_session_id", chatSessionId)
+    .eq("store_id", storeId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Failed to check whether a lead already exists for chat session: ${error.message}`,
+    );
+  }
+
+  return Boolean(data);
+}
+
 export async function updateLeadSaleConfirmationForStore(
   leadId: string,
   storeId: string,
