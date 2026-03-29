@@ -1,0 +1,155 @@
+"use client";
+
+import { BarChart3, Lightbulb, Package2, TrendingUp } from "lucide-react";
+
+import type { Lead, Product } from "@/types/domain";
+
+import { buildSellerDashboardMetrics } from "./sellerAnalytics";
+
+interface SellerDashboardViewProps {
+  leads: Lead[];
+  products: Product[];
+}
+
+function BreakdownList({
+  emptyMessage,
+  items,
+}: {
+  emptyMessage: string;
+  items: Array<{ count: number; label: string }>;
+}) {
+  const maxCount = Math.max(...items.map((item) => item.count), 1);
+
+  if (items.length === 0) {
+    return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {items.map((item) => (
+        <div key={item.label} className="space-y-1.5">
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="truncate text-foreground">{item.label}</span>
+            <span className="font-medium text-muted-foreground">{item.count}</span>
+          </div>
+          <div className="h-2 rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary"
+              style={{ width: `${Math.max((item.count / maxCount) * 100, 8)}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LeadsOverTime({
+  items,
+}: {
+  items: Array<{ count: number; dayLabel: string }>;
+}) {
+  const maxCount = Math.max(...items.map((item) => item.count), 1);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex h-44 items-end gap-2">
+        {items.map((item) => (
+          <div key={item.dayLabel} className="flex flex-1 flex-col items-center gap-2">
+            <div className="flex h-36 w-full items-end">
+              <div
+                className="w-full rounded-t-xl bg-[linear-gradient(180deg,rgba(37,99,235,0.92),rgba(37,99,235,0.42))]"
+                style={{ height: `${Math.max((item.count / maxCount) * 100, item.count > 0 ? 18 : 6)}%` }}
+              />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-foreground">{item.count}</p>
+              <p className="text-xs text-muted-foreground">{item.dayLabel}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Lead capture trend over the last 7 days.
+      </p>
+    </div>
+  );
+}
+
+export function SellerDashboardView({
+  leads,
+  products,
+}: SellerDashboardViewProps) {
+  const metrics = buildSellerDashboardMetrics(leads, products);
+  const cards = [
+    {
+      content: <LeadsOverTime items={metrics.leadsOverTime} />,
+      icon: TrendingUp,
+      title: "Leads over time",
+    },
+    {
+      content: (
+        <BreakdownList
+          emptyMessage="Product performance will appear once leads are captured."
+          items={metrics.productLeaderboard}
+        />
+      ),
+      icon: Package2,
+      title: "Product leaderboard",
+    },
+    {
+      content: (
+        <BreakdownList
+          emptyMessage="Interest signals will appear after the first conversations."
+          items={metrics.inferredInterest}
+        />
+      ),
+      icon: BarChart3,
+      title: "Inferred interest",
+    },
+    {
+      content: (
+        <BreakdownList
+          emptyMessage="Alternative product recommendations are not available yet."
+          items={metrics.nextBestProducts}
+        />
+      ),
+      icon: Lightbulb,
+      title: "Next best product",
+    },
+  ];
+
+  return (
+    <section>
+      <div className="mb-4">
+        <h2 className="font-display text-lg font-semibold">Dashboard</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Live analytics derived from current lead capture data.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        {cards.map((card) => (
+          <div
+            key={card.title}
+            className="rounded-2xl border border-border bg-card p-5 shadow-sm"
+          >
+            <div className="mb-5 flex items-center gap-3">
+              <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                <card.icon className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="font-medium text-foreground">{card.title}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {leads.length} total leads in current dataset
+                </p>
+              </div>
+            </div>
+
+            {card.content}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
