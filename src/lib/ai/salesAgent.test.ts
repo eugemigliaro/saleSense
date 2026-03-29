@@ -137,6 +137,11 @@ describe("generateSalesAssistantReply", () => {
     const provider = vi
       .fn<(input: SalesAgentInput) => Promise<SalesAgentDraft>>()
       .mockRejectedValue(new Error("Gemini unavailable"));
+    const leadCaptureIntentDetector = vi.fn().mockResolvedValue({
+      leadCaptureBenefit: null,
+      rationale: null,
+      shouldNotifyStoreStaff: false,
+    });
 
     const reply = await generateSalesAssistantReply(
       {
@@ -147,6 +152,7 @@ describe("generateSalesAssistantReply", () => {
       },
       {
         comparisonProducts: [],
+        leadCaptureIntentDetector,
         provider,
       },
     );
@@ -169,6 +175,11 @@ describe("generateSalesAssistantReply", () => {
         recommendedAlternativeProductName: "Pixel Ultra",
         suggestedTryout: null,
       });
+    const leadCaptureIntentDetector = vi.fn().mockResolvedValue({
+      leadCaptureBenefit: null,
+      rationale: null,
+      shouldNotifyStoreStaff: false,
+    });
 
     const reply = await generateSalesAssistantReply(
       {
@@ -179,6 +190,7 @@ describe("generateSalesAssistantReply", () => {
       },
       {
         comparisonProducts: [],
+        leadCaptureIntentDetector,
         provider,
       },
     );
@@ -190,27 +202,12 @@ describe("generateSalesAssistantReply", () => {
     expect(reply.notifyStoreStaff).toBe(false);
   });
 
-  it("triggers inline lead capture for price or stock questions", () => {
+  it("builds the inline lead prompt from a Gemini-detected seller follow-up intent", () => {
     const leadCapture = resolveLeadCaptureInstruction({
       activeProduct: ACTIVE_PRODUCT,
       alternativeProducts: ALTERNATIVE_PRODUCTS,
-      draft: {
-        confidence: "high",
-        language: "en",
-        message: "I can walk you through the current option and what to check next.",
-        objective: "pitch",
-        recommendedAlternativeProductName: null,
-        suggestedTryout: null,
-      },
-      history: [
-        ...HISTORY,
-        {
-          content: "What is the price and do you have it in stock?",
-          createdAt: "2026-03-28T08:22:00.000Z",
-          id: "m-3",
-          role: "user",
-        },
-      ],
+      leadCaptureBenefit: "seller-follow-up",
+      language: "en",
       leadCaptureState: "idle",
     });
 
@@ -234,6 +231,11 @@ describe("generateSalesAssistantReply", () => {
         recommendedAlternativeProductName: null,
         suggestedTryout: null,
       });
+    const leadCaptureIntentDetector = vi.fn().mockResolvedValue({
+      leadCaptureBenefit: "seller-follow-up",
+      rationale: "The customer is trying to move into the next buying step.",
+      shouldNotifyStoreStaff: true,
+    });
 
     const reply = await generateSalesAssistantReply(
       {
@@ -252,6 +254,7 @@ describe("generateSalesAssistantReply", () => {
       },
       {
         comparisonProducts: [],
+        leadCaptureIntentDetector,
         provider,
       },
     );
@@ -263,5 +266,17 @@ describe("generateSalesAssistantReply", () => {
       "If you want, you can leave your email in the prompt on screen",
     );
     expect(reply.leadCapture?.benefit).toBe("seller-follow-up");
+  });
+
+  it("does not show a comparison-summary prompt unless there is a same-store alternative to summarize", () => {
+    const leadCapture = resolveLeadCaptureInstruction({
+      activeProduct: ACTIVE_PRODUCT,
+      alternativeProducts: [],
+      leadCaptureBenefit: "conversation-summary",
+      language: "en",
+      leadCaptureState: "idle",
+    });
+
+    expect(leadCapture).toBeNull();
   });
 });

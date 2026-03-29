@@ -27,6 +27,7 @@ import type { ChatMessage, Product } from "@/types/domain";
 const ACTIVE_PRODUCT_MARKDOWN_MAX_LENGTH = 8_000;
 const ALTERNATIVE_PRODUCT_MARKDOWN_MAX_LENGTH = 4_000;
 const HISTORY_MESSAGE_LIMIT = 10;
+const LEAD_CAPTURE_INTENT_RATIONALE_MAX_LENGTH = 300;
 const SALES_AGENT_MESSAGE_MAX_LENGTH = 1_500;
 const STORE_CATALOG_SNIPPET_MAX_LENGTH = 320;
 const SALES_AGENT_RESPONSE_JSON_SCHEMA = {
@@ -64,6 +65,32 @@ const SALES_AGENT_RESPONSE_JSON_SCHEMA = {
   ],
   type: "object",
 } as const;
+const LEAD_CAPTURE_INTENT_JSON_SCHEMA = {
+  additionalProperties: false,
+  properties: {
+    leadCaptureBenefit: {
+      type: ["string", "null"],
+      enum: [
+        "seller-follow-up",
+        "conversation-summary",
+        "product-details",
+        null,
+      ],
+    },
+    rationale: {
+      type: ["string", "null"],
+    },
+    shouldNotifyStoreStaff: {
+      type: "boolean",
+    },
+  },
+  required: [
+    "leadCaptureBenefit",
+    "rationale",
+    "shouldNotifyStoreStaff",
+  ],
+  type: "object",
+} as const;
 
 const salesAgentDraftSchema = z.object({
   confidence: z.enum(["high", "medium", "low"]),
@@ -78,8 +105,21 @@ const salesAgentDraftSchema = z.object({
     .nullable(),
   suggestedTryout: z.string().trim().min(1).max(240).nullable(),
 });
+const leadCaptureIntentSchema = z.object({
+  leadCaptureBenefit: z
+    .enum(["seller-follow-up", "conversation-summary", "product-details"])
+    .nullable(),
+  rationale: z
+    .string()
+    .trim()
+    .min(1)
+    .max(LEAD_CAPTURE_INTENT_RATIONALE_MAX_LENGTH)
+    .nullable(),
+  shouldNotifyStoreStaff: z.boolean(),
+});
 
 export type SalesAgentDraft = z.infer<typeof salesAgentDraftSchema>;
+export type LeadCaptureIntentDecision = z.infer<typeof leadCaptureIntentSchema>;
 
 export interface SalesAgentInput {
   activeProduct: Product;
@@ -105,7 +145,17 @@ export interface SalesAssistantReplyResult {
 
 interface GenerateSalesAssistantReplyOptions {
   comparisonProducts?: ComparisonProduct[];
+  leadCaptureIntentDetector?: (
+    input: LeadCaptureIntentInput,
+  ) => Promise<LeadCaptureIntentDecision>;
   provider?: (input: SalesAgentInput) => Promise<SalesAgentDraft>;
+}
+
+export interface LeadCaptureIntentInput {
+  activeProduct: Product;
+  alternativeProducts: Product[];
+  draft: SalesAgentDraft;
+  history: ChatMessage[];
 }
 
 function truncateText(value: string, maxLength: number) {
@@ -242,17 +292,6 @@ function resolveAllowedAlternativeName(
   return null;
 }
 
-const PRICE_OR_STOCK_PATTERN =
-  /\b(price|cost|how much|stock|available|availability|in stock|precio|cu[aá]nto|disponible|stock)\b/i;
-const PURCHASE_HANDOFF_PATTERN =
-  /\b(payment|pay|checkout|check out|purchase|buy now|ready to buy|take it|reserve|order it|place the order|finance|financing|installments|where do i pay|close the sale|cerrar la compra|pagar|pago|comprar ahora|listo para comprar|reservar|financi)\b/i;
-const COMPARISON_PATTERN =
-  /\b(compare|comparison|vs|versus|difference|similar|which one|compar|diferencia|parecid)\b/i;
-const BUYING_READY_PATTERN =
-  /\b(i('| a)?ll take|i want this|ready to buy|want to buy|buy it|purchase|where do i pay|i'm sold|lo quiero|me lo llevo|quiero comprar|comprarlo|me sirve)\b/i;
-const POSITIVE_RECOMMENDATION_PATTERN =
-  /\b(sounds good|that works|perfect|great|awesome|love that|let'?s do it|exactly what i need|suena bien|perfecto|buen[ií]simo|me encanta|dale)\b/i;
-
 function buildLeadCapturePrompt(input: {
   activeProduct: Product;
   benefit: LeadCaptureBenefit;
@@ -319,21 +358,95 @@ function buildStoreHandoffMessage(input: {
   return `I can’t handle payment, confirm pricing, or complete the purchase myself. I’m handing this over to an in-store employee so they can take it from here with the ${productLabel}.`;
 }
 
-function shouldNotifyStoreStaff(history: ChatMessage[]) {
-  const latestCustomerMessage = getLatestUserMessage(getRecentHistory(history));
+function normalizeLeadCaptureIntent(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return value;
+  }
 
-  return (
-    PURCHASE_HANDOFF_PATTERN.test(latestCustomerMessage) ||
-    PRICE_OR_STOCK_PATTERN.test(latestCustomerMessage)
-  );
+  const rawDecision = value as Record<string, unknown>;
+
+  return {
+    ...rawDecision,
+    rationale:
+      typeof rawDecision.rationale === "string"
+        ? rawDecision.rationale.slice(0, LEAD_CAPTURE_INTENT_RATIONALE_MAX_LENGTH)
+        : rawDecision.rationale,
+  };
 }
 
-function enforcePurchaseBoundary(input: {
+const LEAD_CAPTURE_INTENT_SYSTEM_INSTRUCTION = [
+  "You decide whether a SaleSense conversation should trigger contact collection or an in-store staff handoff.",
+  "Use customer intent from the recent transcript and the proposed assistant reply.",
+  "Do not rely on hard-coded keywords.",
+  "Set shouldNotifyStoreStaff to true when the customer is trying to move into human-assisted next steps that the kiosk cannot complete on its own.",
+  "Examples of those next steps include purchase progression, live commercial confirmation, real-world follow-up, or asking for a person to continue.",
+  "Set leadCaptureBenefit to seller-follow-up when a human seller follow-up is the clearest value of collecting contact information.",
+  "Set leadCaptureBenefit to conversation-summary when the customer is comparing options and an emailed summary would clearly help them continue later.",
+  "Set leadCaptureBenefit to product-details when the customer would benefit from receiving this product's details later without clearly needing a human seller next.",
+  "Return null for leadCaptureBenefit when asking for contact information would feel premature, pushy, or unnecessary.",
+  "Only use conversation-summary when the conversation genuinely involves other same-store alternatives worth comparing.",
+  "Return only valid JSON that matches the required schema.",
+].join(" ");
+
+function buildLeadCaptureIntentPrompt(input: LeadCaptureIntentInput) {
+  const recentHistory = getRecentHistory(input.history);
+
+  return [
+    "Active product:",
+    `Name: ${input.activeProduct.name}`,
+    `Brand: ${input.activeProduct.brand}`,
+    `Category: ${input.activeProduct.category}`,
+    "",
+    "Relevant alternative same-store products:",
+    input.alternativeProducts.length > 0
+      ? input.alternativeProducts
+          .map(
+            (product) =>
+              `- ${product.brand} ${product.name}: ${truncateText(product.comparisonSnippetMarkdown, 220)}`,
+          )
+          .join("\n")
+      : "- No alternative same-store products are currently relevant.",
+    "",
+    "Recent transcript:",
+    formatHistory(recentHistory),
+    "",
+    "Proposed assistant reply:",
+    `Objective: ${input.draft.objective}`,
+    `Language: ${input.draft.language}`,
+    `Message: ${input.draft.message}`,
+    "",
+    "Decide whether this moment should trigger optional contact collection and whether the store staff should be notified.",
+  ].join("\n");
+}
+
+async function detectLeadCaptureIntent(input: LeadCaptureIntentInput) {
+  try {
+    const rawDecision = await generateGeminiJson<unknown>(
+      buildLeadCaptureIntentPrompt(input),
+      {
+        responseJsonSchema: LEAD_CAPTURE_INTENT_JSON_SCHEMA,
+        systemInstruction: LEAD_CAPTURE_INTENT_SYSTEM_INSTRUCTION,
+      },
+    );
+
+    return leadCaptureIntentSchema.parse(normalizeLeadCaptureIntent(rawDecision));
+  } catch (error) {
+    console.error("Failed to detect lead capture intent. Falling back.", error);
+
+    return {
+      leadCaptureBenefit: null,
+      rationale: null,
+      shouldNotifyStoreStaff: false,
+    } satisfies LeadCaptureIntentDecision;
+  }
+}
+
+function applyStoreHandoffDecision(input: {
   activeProduct: Product;
   draft: SalesAgentDraft;
-  history: ChatMessage[];
+  shouldNotifyStoreStaff: boolean;
 }) {
-  if (!shouldNotifyStoreStaff(input.history)) {
+  if (!input.shouldNotifyStoreStaff && input.draft.objective !== "handoff") {
     return {
       draft: input.draft,
       notifyStoreStaff: false,
@@ -359,50 +472,32 @@ function enforcePurchaseBoundary(input: {
 export function resolveLeadCaptureInstruction(input: {
   activeProduct: Product;
   alternativeProducts: Product[];
-  draft: SalesAgentDraft;
-  history: ChatMessage[];
+  leadCaptureBenefit: LeadCaptureBenefit | null;
+  language: "en" | "es";
   leadCaptureState: LeadCaptureState;
 }): LeadCaptureInstruction | null {
   if (input.leadCaptureState !== "idle") {
     return null;
   }
 
-  const latestCustomerMessage = getLatestUserMessage(getRecentHistory(input.history));
-
-  if (!latestCustomerMessage) {
+  if (!input.leadCaptureBenefit) {
     return null;
   }
 
-  let benefit: LeadCaptureBenefit | null = null;
-
   if (
-    PURCHASE_HANDOFF_PATTERN.test(latestCustomerMessage) ||
-    PRICE_OR_STOCK_PATTERN.test(latestCustomerMessage)
+    input.leadCaptureBenefit === "conversation-summary" &&
+    input.alternativeProducts.length === 0
   ) {
-    benefit = "seller-follow-up";
-  } else if (
-    input.draft.objective === "compare" &&
-    input.alternativeProducts.length > 0 &&
-    COMPARISON_PATTERN.test(latestCustomerMessage)
-  ) {
-    benefit = "conversation-summary";
-  } else if (BUYING_READY_PATTERN.test(latestCustomerMessage)) {
-    benefit = "product-details";
-  } else if (POSITIVE_RECOMMENDATION_PATTERN.test(latestCustomerMessage)) {
-    benefit = "seller-follow-up";
-  }
-
-  if (!benefit) {
     return null;
   }
 
   return {
-    benefit,
-    language: input.draft.language,
+    benefit: input.leadCaptureBenefit,
+    language: input.language,
     prompt: buildLeadCapturePrompt({
       activeProduct: input.activeProduct,
-      benefit,
-      language: input.draft.language,
+      benefit: input.leadCaptureBenefit,
+      language: input.language,
     }),
     shouldPrompt: true,
   };
@@ -631,22 +726,32 @@ export async function generateSalesAssistantReply(
     history: trimmedHistory,
   };
   const provider = options.provider ?? generateSalesAgentDraftWithGemini;
+  const leadCaptureIntentDetector =
+    options.leadCaptureIntentDetector ?? detectLeadCaptureIntent;
 
   try {
     const boundedDraft = enforceStoreCatalogBoundary(
       salesAgentInput,
       await provider(salesAgentInput),
     );
-    const purchaseBoundary = enforcePurchaseBoundary({
+    const leadCaptureIntent = await leadCaptureIntentDetector({
       activeProduct: input.activeProduct,
+      alternativeProducts,
       draft: boundedDraft,
       history: trimmedHistory,
+    });
+    const purchaseBoundary = applyStoreHandoffDecision({
+      activeProduct: input.activeProduct,
+      draft: boundedDraft,
+      shouldNotifyStoreStaff: leadCaptureIntent.shouldNotifyStoreStaff,
     });
     const leadCapture = resolveLeadCaptureInstruction({
       activeProduct: input.activeProduct,
       alternativeProducts,
-      draft: purchaseBoundary.draft,
-      history: trimmedHistory,
+      leadCaptureBenefit:
+        leadCaptureIntent.leadCaptureBenefit ??
+        (purchaseBoundary.notifyStoreStaff ? "seller-follow-up" : null),
+      language: purchaseBoundary.draft.language,
       leadCaptureState: input.leadCaptureState,
     });
     const draft = attachLeadCaptureAnnouncement({
@@ -663,16 +768,25 @@ export async function generateSalesAssistantReply(
   } catch (error) {
     console.error("Failed to generate Gemini sales reply. Falling back.", error);
 
-    const purchaseBoundary = enforcePurchaseBoundary({
+    const fallbackDraft = buildFallbackSalesAgentReply(salesAgentInput);
+    const leadCaptureIntent = await leadCaptureIntentDetector({
       activeProduct: input.activeProduct,
-      draft: buildFallbackSalesAgentReply(salesAgentInput),
+      alternativeProducts,
+      draft: fallbackDraft,
       history: trimmedHistory,
+    });
+    const purchaseBoundary = applyStoreHandoffDecision({
+      activeProduct: input.activeProduct,
+      draft: fallbackDraft,
+      shouldNotifyStoreStaff: leadCaptureIntent.shouldNotifyStoreStaff,
     });
     const leadCapture = resolveLeadCaptureInstruction({
       activeProduct: input.activeProduct,
       alternativeProducts,
-      draft: purchaseBoundary.draft,
-      history: trimmedHistory,
+      leadCaptureBenefit:
+        leadCaptureIntent.leadCaptureBenefit ??
+        (purchaseBoundary.notifyStoreStaff ? "seller-follow-up" : null),
+      language: purchaseBoundary.draft.language,
       leadCaptureState: input.leadCaptureState,
     });
     const draft = attachLeadCaptureAnnouncement({
