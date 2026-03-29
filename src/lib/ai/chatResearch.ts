@@ -59,6 +59,26 @@ const chatResearchDecisionSchema = z.object({
     .transform((value) => Array.from(new Set(value))),
 });
 
+function normalizeChatResearchDecision(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const rawDecision = value as Record<string, unknown>;
+
+  return {
+    ...rawDecision,
+    rationale:
+      typeof rawDecision.rationale === "string"
+        ? rawDecision.rationale.slice(0, 300)
+        : rawDecision.rationale,
+    researchBrief:
+      typeof rawDecision.researchBrief === "string"
+        ? rawDecision.researchBrief.slice(0, RESEARCH_BRIEF_MAX_LENGTH)
+        : rawDecision.researchBrief,
+  };
+}
+
 const CHAT_RESEARCH_DECISION_SYSTEM_INSTRUCTION = [
   "You decide whether a SaleSense chat reply needs external web research.",
   "Do not rely on hard-coded keywords.",
@@ -173,7 +193,9 @@ export async function detectChatResearchIntent(
       },
     );
 
-    return chatResearchDecisionSchema.parse(rawDecision);
+    return chatResearchDecisionSchema.parse(
+      normalizeChatResearchDecision(rawDecision),
+    );
   } catch (error) {
     console.error("Failed to detect research intent. Falling back.", error);
 

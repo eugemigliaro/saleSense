@@ -45,13 +45,17 @@ export default function KioskExperience({
           draft={experience.draft}
           groundingByMessageId={experience.groundingByMessageId}
           idleMediaUrl={idleMediaUrl}
-          isTyping={experience.isTyping}
+          isAssistantSpeaking={experience.isAssistantSpeaking}
+          isAwaitingReply={experience.isAwaitingReply}
+          isVoiceAvailable={experience.isVoiceAvailable}
+          isVoiceRecording={experience.isVoiceRecording}
           messages={experience.messages}
+          onCancelVoiceInput={experience.cancelVoiceInput}
           onCloseGrounding={experience.closeGrounding}
           onDraftChange={experience.setDraft}
-          onEndSession={experience.transitionToLeadCapture}
           onOpenGroundingForMessage={experience.openGroundingForMessage}
           onSendMessage={experience.sendMessage}
+          onVoicePrimaryAction={experience.startVoiceInput}
           voiceState={experience.voiceState}
         />
       ) : null}

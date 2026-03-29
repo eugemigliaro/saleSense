@@ -34,6 +34,22 @@ const alternativeSelectionSchema = z.object({
   shouldConsiderAlternatives: z.boolean(),
 });
 
+function normalizeAlternativeSelection(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const rawSelection = value as Record<string, unknown>;
+
+  return {
+    ...rawSelection,
+    rationale:
+      typeof rawSelection.rationale === "string"
+        ? rawSelection.rationale.slice(0, 400)
+        : rawSelection.rationale,
+  };
+}
+
 const ALTERNATIVE_SELECTION_SYSTEM_INSTRUCTION = [
   "You decide whether SaleSense should bring other in-store products into context for the next reply.",
   "Every product in the provided list belongs to the same store as the active product.",
@@ -171,7 +187,9 @@ export async function selectAlternativeProductIds(input: {
         systemInstruction: ALTERNATIVE_SELECTION_SYSTEM_INSTRUCTION,
       },
     );
-    const selection = alternativeSelectionSchema.parse(rawSelection);
+    const selection = alternativeSelectionSchema.parse(
+      normalizeAlternativeSelection(rawSelection),
+    );
 
     if (!selection.shouldConsiderAlternatives) {
       return [];

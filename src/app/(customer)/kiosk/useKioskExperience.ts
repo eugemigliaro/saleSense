@@ -12,9 +12,16 @@ import {
   sendDeviceSessionHeartbeat,
   sendKioskChatMessage,
 } from "./kioskApi";
-import { buildMockReply, buildPreviewGreeting, createMessage } from "./kioskHelpers";
+import {
+  buildMockReply,
+  buildPreviewGreeting,
+  createMessage,
+} from "./kioskHelpers";
 import type { KioskState, LiveChatSessionResult } from "./kioskTypes";
 import { useLiveVoiceSession } from "./useLiveVoiceSession";
+
+const CHAT_INACTIVITY_TIMEOUT_MS = 10_000;
+const LEAD_CAPTURE_INACTIVITY_TIMEOUT_MS = 10_000;
 
 interface UseKioskExperienceInput {
   brandName: string;
@@ -55,7 +62,7 @@ export function useKioskExperience({
     string | null
   >(null);
   const [draft, setDraft] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
+  const [isAwaitingReply, setIsAwaitingReply] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatSessionId, setChatSessionId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
@@ -63,6 +70,8 @@ export function useKioskExperience({
   const [customerPhone, setCustomerPhone] = useState("");
   const [leadError, setLeadError] = useState<string | null>(null);
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
+  const [isVoiceDefaultEnabled, setIsVoiceDefaultEnabled] = useState(true);
+  const [activityTick, setActivityTick] = useState(0);
   const chatSessionRequestRef = useRef<Promise<LiveChatSessionResult | null> | null>(
     null,
   );
@@ -98,12 +107,12 @@ export function useKioskExperience({
         result.grounding,
       ),
     );
-    setIsTyping(false);
+    setIsAwaitingReply(false);
   }
 
   function handleVoiceError(message: string) {
     setChatError(message);
-    setIsTyping(false);
+    setIsAwaitingReply(false);
   }
 
   const voiceSession = useLiveVoiceSession({
@@ -141,7 +150,8 @@ export function useKioskExperience({
     setGroundingByMessageId({});
     setActiveGroundingMessageId(null);
     setDraft("");
-    setIsTyping(false);
+    setIsAwaitingReply(false);
+    setIsVoiceDefaultEnabled(true);
     setMessages([]);
     setState("idle");
     finalizeChatSession(activeChatSessionId);
@@ -150,6 +160,10 @@ export function useKioskExperience({
   const handleAutoReset = useEffectEvent(() => {
     resetExperience();
   });
+
+  function recordConversationActivity() {
+    setActivityTick((currentTick) => currentTick + 1);
+  }
 
   const sendHeartbeat = useEffectEvent(async () => {
     if (!deviceSessionId) {
@@ -232,6 +246,116 @@ export function useKioskExperience({
     };
   }, []);
 
+  useEffect(() => {
+    if (state !== "chat" && state !== "lead") {
+      return;
+    }
+
+    function handleActivityEvent() {
+      recordConversationActivity();
+    }
+
+    document.addEventListener("keydown", handleActivityEvent);
+    document.addEventListener("pointerdown", handleActivityEvent);
+    document.addEventListener("touchstart", handleActivityEvent, {
+      passive: true,
+    });
+
+    return () => {
+      document.removeEventListener("keydown", handleActivityEvent);
+      document.removeEventListener("pointerdown", handleActivityEvent);
+      document.removeEventListener("touchstart", handleActivityEvent);
+    };
+  }, [state]);
+
+  const maybeStartDefaultVoiceInput = useEffectEvent(() => {
+    if (
+      state !== "chat" ||
+      draft.trim().length > 0 ||
+      !isVoiceDefaultEnabled ||
+      !voiceSession.isVoiceEnabled ||
+      voiceSession.isAwaitingResponse ||
+      voiceSession.isRecording ||
+      voiceSession.voiceState !== "ready"
+    ) {
+      return;
+    }
+
+    void voiceSession.startRecording();
+  });
+
+  useEffect(() => {
+    maybeStartDefaultVoiceInput();
+  }, [
+    draft,
+    isVoiceDefaultEnabled,
+    state,
+    voiceSession.isAwaitingResponse,
+    voiceSession.isRecording,
+    voiceSession.isVoiceEnabled,
+    voiceSession.voiceState,
+  ]);
+
+  const hasUserMessages = messages.some((message) => message.role === "user");
+
+  const handleAutoLeadCapture = useEffectEvent(async () => {
+    await voiceSession.disconnect();
+    setState("lead");
+  });
+
+  useEffect(() => {
+    if (state !== "chat" && state !== "lead") {
+      return;
+    }
+
+    if (
+      state === "chat" &&
+      (isAwaitingReply ||
+        voiceSession.isAwaitingResponse ||
+        voiceSession.voiceState === "assistant-speaking" ||
+        voiceSession.voiceState === "connecting")
+    ) {
+      return;
+    }
+
+    const timeoutMs =
+      state === "chat"
+        ? CHAT_INACTIVITY_TIMEOUT_MS
+        : LEAD_CAPTURE_INACTIVITY_TIMEOUT_MS;
+    const inactivityTimeout = window.setTimeout(() => {
+      if (state === "chat") {
+        if (!hasUserMessages) {
+          handleAutoReset();
+          return;
+        }
+
+        void handleAutoLeadCapture();
+        return;
+      }
+
+      handleAutoReset();
+    }, timeoutMs);
+
+    return () => {
+      window.clearTimeout(inactivityTimeout);
+    };
+  }, [
+    activeGroundingMessageId,
+    activityTick,
+    chatError,
+    customerEmail,
+    customerName,
+    customerPhone,
+    draft,
+    hasUserMessages,
+    isAwaitingReply,
+    leadError,
+    messages,
+    state,
+    voiceSession.isAwaitingResponse,
+    voiceSession.voiceState,
+  ]);
+
   async function ensureServerChatSession() {
     if (!deviceSessionId) {
       return null;
@@ -265,14 +389,19 @@ export function useKioskExperience({
     setGroundingByMessageId({});
     setActiveGroundingMessageId(null);
     setDraft("");
+    setIsAwaitingReply(false);
+    setIsVoiceDefaultEnabled(true);
     setState("chat");
+    recordConversationActivity();
 
     if (!deviceSessionId) {
-      setMessages([createMessage("assistant", buildPreviewGreeting(productName, category))]);
+      setMessages([
+        createMessage("assistant", buildPreviewGreeting(productName, category)),
+      ]);
       return;
     }
 
-    setIsTyping(true);
+    setIsAwaitingReply(true);
 
     try {
       const liveChatSession = await ensureServerChatSession();
@@ -280,8 +409,17 @@ export function useKioskExperience({
 
       if (liveChatSession?.initialMessage) {
         setMessages([liveChatSession.initialMessage]);
-      } else if (messages.length === 0) {
-        setMessages([createMessage("assistant", buildPreviewGreeting(productName, category))]);
+      } else {
+        setMessages((currentMessages) =>
+          currentMessages.length > 0
+            ? currentMessages
+            : [
+                createMessage(
+                  "assistant",
+                  buildPreviewGreeting(productName, category),
+                ),
+              ],
+        );
       }
 
       await voiceSession.connect(activeLiveChatSessionId);
@@ -293,22 +431,31 @@ export function useKioskExperience({
           : "Live chat is unavailable right now.",
       );
     } finally {
-      setIsTyping(false);
+      setIsAwaitingReply(false);
     }
 
-    setMessages([createMessage("assistant", buildPreviewGreeting(productName, category))]);
+    setMessages([
+      createMessage("assistant", buildPreviewGreeting(productName, category)),
+    ]);
   }
 
   async function sendMessage(content: string) {
     const normalizedContent = content.trim();
 
-    if (!normalizedContent || isTyping) {
+    if (
+      !normalizedContent ||
+      isAwaitingReply ||
+      voiceSession.isAwaitingResponse ||
+      voiceSession.voiceState === "assistant-speaking"
+    ) {
       return;
     }
 
+    voiceSession.cancelRecording();
     setChatError(null);
     setDraft("");
-    setIsTyping(true);
+    setIsAwaitingReply(true);
+    recordConversationActivity();
     let previewReplyScheduled = false;
 
     try {
@@ -333,6 +480,7 @@ export function useKioskExperience({
             role: "user",
           },
         ]);
+
         try {
           await voiceSession.sendTextTurn(normalizedContent, pendingMessageId);
           return;
@@ -348,9 +496,10 @@ export function useKioskExperience({
         }
       }
 
-      const nextMessages = [...messages, createMessage("user", normalizedContent)];
-
-      setMessages(nextMessages);
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        createMessage("user", normalizedContent),
+      ]);
 
       if (activeChatSessionId) {
         const response = await sendKioskChatMessage(
@@ -377,14 +526,16 @@ export function useKioskExperience({
             createMessage(
               "assistant",
               buildMockReply(
-                currentMessages.filter((message) => message.role === "assistant").length,
+                currentMessages.filter(
+                  (message) => message.role === "assistant",
+                ).length,
                 productName,
                 brandName,
                 category,
               ),
             ),
           ]);
-          setIsTyping(false);
+          setIsAwaitingReply(false);
           typingTimeoutRef.current = null;
         }, 900);
 
@@ -398,10 +549,49 @@ export function useKioskExperience({
       );
     } finally {
       if (!previewReplyScheduled) {
-        setIsTyping(false);
+        setIsAwaitingReply(false);
         typingTimeoutRef.current = null;
       }
     }
+  }
+
+  function handleDraftChange(nextDraft: string) {
+    if (nextDraft.trim().length > 0 && voiceSession.isRecording) {
+      voiceSession.cancelRecording();
+      setIsVoiceDefaultEnabled(false);
+    }
+
+    setDraft(nextDraft);
+    recordConversationActivity();
+  }
+
+  async function handleVoicePrimaryAction() {
+    recordConversationActivity();
+
+    if (voiceSession.isRecording) {
+      try {
+        setChatError(null);
+        await voiceSession.submitRecording();
+      } catch (error) {
+        setChatError(
+          error instanceof Error
+            ? error.message
+            : "Voice is unavailable right now.",
+        );
+      }
+
+      return;
+    }
+
+    if (voiceSession.isVoiceEnabled) {
+      await voiceSession.startRecording();
+    }
+  }
+
+  function cancelVoiceInput() {
+    voiceSession.cancelRecording();
+    setIsVoiceDefaultEnabled(false);
+    recordConversationActivity();
   }
 
   async function submitLead() {
@@ -411,6 +601,7 @@ export function useKioskExperience({
 
     setLeadError(null);
     setIsSubmittingLead(true);
+    recordConversationActivity();
 
     try {
       if (productId) {
@@ -441,6 +632,7 @@ export function useKioskExperience({
         ? null
         : groundingByMessageId[activeGroundingMessageId] ?? null,
     activeGroundingMessageId,
+    cancelVoiceInput,
     chatError,
     closeGrounding: () => setActiveGroundingMessageId(null),
     customerEmail,
@@ -448,12 +640,15 @@ export function useKioskExperience({
     customerPhone,
     draft,
     groundingByMessageId,
-    isLiveSession: Boolean(deviceSessionId),
-    isSubmittingLead,
-    isTyping:
-      isTyping ||
-      voiceSession.voiceState === "assistant-speaking" ||
+    isAssistantSpeaking: voiceSession.voiceState === "assistant-speaking",
+    isAwaitingReply:
+      isAwaitingReply ||
+      voiceSession.isAwaitingResponse ||
       voiceSession.voiceState === "connecting",
+    isSubmittingLead,
+    isVoiceAvailable: voiceSession.isVoiceEnabled,
+    isVoiceDefaultEnabled,
+    isVoiceRecording: voiceSession.isRecording,
     leadError,
     messages,
     openGroundingForMessage: (messageId: string) =>
@@ -465,14 +660,11 @@ export function useKioskExperience({
     setCustomerEmail,
     setCustomerName,
     setCustomerPhone,
-    setDraft,
+    setDraft: handleDraftChange,
     startExperience,
+    startVoiceInput: handleVoicePrimaryAction,
     state,
     submitLead,
-    transitionToLeadCapture: async () => {
-      await voiceSession.disconnect();
-      setState("lead");
-    },
     voiceError: voiceSession.voiceError,
     voiceState: voiceSession.voiceState,
   };

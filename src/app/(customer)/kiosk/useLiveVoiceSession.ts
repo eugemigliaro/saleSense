@@ -3,12 +3,12 @@
 import {
   GoogleGenAI,
   type FunctionCall,
+  type LiveConnectConfig,
   type LiveServerMessage,
   Modality,
   type Session as GeminiLiveSession,
   ThinkingLevel,
   Type,
-  type LiveConnectConfig,
 } from "@google/genai";
 import { useEffect, useRef, useState } from "react";
 
@@ -16,8 +16,8 @@ import type { GeminiLiveConfigPayload } from "@/types/api";
 
 import type { KioskLiveToolCallResult, VoiceSessionState } from "./kioskTypes";
 import {
-  createRealtimeAudioChunk,
   createPlaybackAudioBuffer,
+  createRealtimeAudioChunk,
   type LiveAudioInlineData,
 } from "./liveVoiceAudio";
 import { createKioskLiveToken, sendKioskLiveToolCall } from "./kioskApi";
@@ -41,10 +41,25 @@ type LiveRealtimeAudioInput = NonNullable<
   Parameters<GeminiLiveSession["sendRealtimeInput"]>[0]["audio"]
 >;
 
+const SPEECH_START_THRESHOLD = 0.018;
+const SPEECH_CONTINUE_THRESHOLD = 0.012;
+const SPEECH_END_SILENCE_MS = 1100;
+const MIN_DETECTED_SPEECH_CHUNKS = 3;
+
 function getLiveErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message.trim().length > 0
     ? error.message
     : fallback;
+}
+
+function getAudioLevel(samples: Float32Array) {
+  let squaredSum = 0;
+
+  for (let index = 0; index < samples.length; index += 1) {
+    squaredSum += samples[index] * samples[index];
+  }
+
+  return Math.sqrt(squaredSum / samples.length);
 }
 
 function toSdkLiveConfig(payload: GeminiLiveConfigPayload): LiveConnectConfig {
@@ -122,7 +137,10 @@ export function useLiveVoiceSession({
   const [voiceState, setVoiceState] = useState<VoiceSessionState>("idle");
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
+  const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
 
+  const isVoiceEnabledRef = useRef(false);
+  const isAwaitingResponseRef = useRef(false);
   const liveSessionRef = useRef<GeminiLiveSession | null>(null);
   const inputAudioContextRef = useRef<AudioContext | null>(null);
   const outputAudioContextRef = useRef<AudioContext | null>(null);
@@ -138,6 +156,11 @@ export function useLiveVoiceSession({
   const shuttingDownRef = useRef(false);
   const activeChatSessionIdRef = useRef<string | null>(null);
   const pendingTextTurnRef = useRef<PendingTextTurn | null>(null);
+  const bufferedAudioChunksRef = useRef<LiveRealtimeAudioInput[]>([]);
+  const hasDetectedSpeechRef = useRef(false);
+  const lastSpeechAtRef = useRef<number | null>(null);
+  const detectedSpeechChunkCountRef = useRef(0);
+  const autoSubmitInFlightRef = useRef(false);
   const cleanupSessionRef = useRef<() => Promise<void>>(async () => undefined);
 
   function resetPlaybackState() {
@@ -146,22 +169,42 @@ export function useLiveVoiceSession({
     pendingAssistantTurnCompleteRef.current = false;
   }
 
-  function enableListening() {
-    if (
-      voiceState === "fallback" ||
-      !liveSessionRef.current ||
-      !processorRef.current ||
-      !microphoneStreamRef.current
-    ) {
-      return;
-    }
-
-    captureEnabledRef.current = true;
-    setVoiceState("customer-listening");
+  function clearBufferedAudio() {
+    bufferedAudioChunksRef.current = [];
   }
 
-  function disableListening() {
+  function resetSpeechTracking() {
+    hasDetectedSpeechRef.current = false;
+    lastSpeechAtRef.current = null;
+    detectedSpeechChunkCountRef.current = 0;
+    autoSubmitInFlightRef.current = false;
+  }
+
+  function hasBufferedSpeech() {
+    return (
+      hasDetectedSpeechRef.current &&
+      detectedSpeechChunkCountRef.current >= MIN_DETECTED_SPEECH_CHUNKS
+    );
+  }
+
+  function setReadyState() {
+    setVoiceState((currentVoiceState) =>
+      currentVoiceState === "fallback" ? currentVoiceState : "ready",
+    );
+  }
+
+  function stopRecording() {
     captureEnabledRef.current = false;
+  }
+
+  function updateVoiceEnabled(nextValue: boolean) {
+    isVoiceEnabledRef.current = nextValue;
+    setIsVoiceEnabled(nextValue);
+  }
+
+  function updateAwaitingResponse(nextValue: boolean) {
+    isAwaitingResponseRef.current = nextValue;
+    setIsAwaitingResponse(nextValue);
   }
 
   function rejectPendingTextTurn(error: unknown) {
@@ -216,11 +259,21 @@ export function useLiveVoiceSession({
         pendingAssistantTurnCompleteRef.current
       ) {
         pendingAssistantTurnCompleteRef.current = false;
-        enableListening();
+        setReadyState();
       }
     };
 
     sourceNode.start(scheduledStartTime);
+  }
+
+  async function degradeToFallback(message: string, notify = true) {
+    await cleanupSession();
+    setVoiceError(message);
+    setVoiceState("fallback");
+
+    if (notify) {
+      onVoiceError(message);
+    }
   }
 
   async function handleToolCalls(functionCalls: FunctionCall[]) {
@@ -230,8 +283,10 @@ export function useLiveVoiceSession({
       throw new Error("Chat session is unavailable for live voice.");
     }
 
-    disableListening();
-    setVoiceState("assistant-speaking");
+    stopRecording();
+    clearBufferedAudio();
+    updateAwaitingResponse(true);
+    setReadyState();
 
     const toolResponses = await Promise.all(
       functionCalls.map(async (functionCall) => {
@@ -258,6 +313,8 @@ export function useLiveVoiceSession({
     liveSessionRef.current?.sendToolResponse({
       functionResponses: toolResponses,
     });
+
+    updateAwaitingResponse(false);
   }
 
   async function handleLiveMessage(message: LiveServerMessage) {
@@ -270,11 +327,8 @@ export function useLiveVoiceSession({
           "Voice is unavailable right now. Continue with typed chat.",
         );
 
-        setVoiceError(liveErrorMessage);
-        setVoiceState("fallback");
-        setIsVoiceEnabled(false);
         rejectPendingTextTurn(new Error(liveErrorMessage));
-        onVoiceError(liveErrorMessage);
+        await degradeToFallback(liveErrorMessage);
       }
 
       return;
@@ -288,7 +342,8 @@ export function useLiveVoiceSession({
 
     if (serverContent.interrupted) {
       resetPlaybackState();
-      enableListening();
+      updateAwaitingResponse(false);
+      setReadyState();
       return;
     }
 
@@ -298,7 +353,8 @@ export function useLiveVoiceSession({
       .filter(isLiveAudioInlineData);
 
     if (audioParts.length > 0) {
-      disableListening();
+      stopRecording();
+      updateAwaitingResponse(false);
       setVoiceState("assistant-speaking");
 
       await Promise.all(audioParts.map((part) => queuePlaybackBlob(part)));
@@ -309,14 +365,17 @@ export function useLiveVoiceSession({
 
       if (queuedPlaybackCountRef.current === 0) {
         pendingAssistantTurnCompleteRef.current = false;
-        enableListening();
+        updateAwaitingResponse(false);
+        setReadyState();
       }
     }
   }
 
   async function cleanupSession() {
     shuttingDownRef.current = true;
-    disableListening();
+    stopRecording();
+    clearBufferedAudio();
+    resetSpeechTracking();
 
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.cancel();
@@ -349,7 +408,8 @@ export function useLiveVoiceSession({
 
     activeChatSessionIdRef.current = null;
     connectingRef.current = false;
-    setIsVoiceEnabled(false);
+    updateVoiceEnabled(false);
+    updateAwaitingResponse(false);
     resetPlaybackState();
     rejectPendingTextTurn(new Error("Voice session closed."));
   }
@@ -380,7 +440,7 @@ export function useLiveVoiceSession({
     processorNode.onaudioprocess = (event) => {
       event.outputBuffer.getChannelData(0).fill(0);
 
-      if (!captureEnabledRef.current || !liveSessionRef.current) {
+      if (!captureEnabledRef.current) {
         return;
       }
 
@@ -390,14 +450,37 @@ export function useLiveVoiceSession({
         return;
       }
 
+      const samples = new Float32Array(inputBuffer);
+      const audioLevel = getAudioLevel(samples);
+      const speechThreshold = hasDetectedSpeechRef.current
+        ? SPEECH_CONTINUE_THRESHOLD
+        : SPEECH_START_THRESHOLD;
+
+      if (audioLevel >= speechThreshold) {
+        hasDetectedSpeechRef.current = true;
+        lastSpeechAtRef.current = performance.now();
+        detectedSpeechChunkCountRef.current += 1;
+      }
+
+      if (
+        hasBufferedSpeech() &&
+        lastSpeechAtRef.current !== null &&
+        !autoSubmitInFlightRef.current &&
+        performance.now() - lastSpeechAtRef.current >= SPEECH_END_SILENCE_MS
+      ) {
+        autoSubmitInFlightRef.current = true;
+        void submitBufferedAudio().catch((error) => {
+          console.error("Failed to auto-submit buffered voice input.", error);
+        });
+        return;
+      }
+
       const chunk = createRealtimeAudioChunk(
-        new Float32Array(inputBuffer),
+        samples,
         event.inputBuffer.sampleRate,
       );
 
-      liveSessionRef.current.sendRealtimeInput({
-        audio: chunk as LiveRealtimeAudioInput,
-      });
+      bufferedAudioChunksRef.current.push(chunk as LiveRealtimeAudioInput);
     };
 
     sourceNode.connect(processorNode);
@@ -429,6 +512,7 @@ export function useLiveVoiceSession({
 
     connectingRef.current = true;
     setVoiceError(null);
+    updateAwaitingResponse(false);
     setVoiceState("connecting");
 
     try {
@@ -452,17 +536,18 @@ export function useLiveVoiceSession({
               return;
             }
 
-            setVoiceState("fallback");
-            setIsVoiceEnabled(false);
+            void degradeToFallback(
+              "Voice is unavailable right now. Continue with typed chat.",
+            );
           },
           onerror: () => {
             if (shuttingDownRef.current) {
               return;
             }
 
-            setVoiceError("Voice is unavailable right now. Continue with typed chat.");
-            setVoiceState("fallback");
-            setIsVoiceEnabled(false);
+            void degradeToFallback(
+              "Voice is unavailable right now. Continue with typed chat.",
+            );
           },
           onmessage: (message) => {
             void handleLiveMessage(message);
@@ -474,7 +559,7 @@ export function useLiveVoiceSession({
 
       liveSessionRef.current = session;
       activeChatSessionIdRef.current = targetChatSessionId;
-      setIsVoiceEnabled(true);
+      updateVoiceEnabled(true);
 
       try {
         setVoiceState("assistant-speaking");
@@ -483,7 +568,7 @@ export function useLiveVoiceSession({
         // Keep voice active even if the browser opener speech fails.
       }
 
-      enableListening();
+      setReadyState();
 
       return true;
     } catch (error) {
@@ -492,10 +577,7 @@ export function useLiveVoiceSession({
         "Voice is unavailable right now. Continue with typed chat.",
       );
 
-      await cleanupSession();
-      setVoiceError(message);
-      setVoiceState("fallback");
-      onVoiceError(message);
+      await degradeToFallback(message);
 
       return false;
     } finally {
@@ -509,6 +591,89 @@ export function useLiveVoiceSession({
     setVoiceState("idle");
   }
 
+  async function startRecording() {
+    if (
+      !liveSessionRef.current ||
+      !isVoiceEnabledRef.current ||
+      isAwaitingResponseRef.current ||
+      pendingTextTurnRef.current
+    ) {
+      return false;
+    }
+
+    clearBufferedAudio();
+    resetSpeechTracking();
+    captureEnabledRef.current = true;
+    setVoiceError(null);
+    setVoiceState("recording");
+
+    return true;
+  }
+
+  function cancelRecording() {
+    stopRecording();
+    clearBufferedAudio();
+    resetSpeechTracking();
+
+    if (isVoiceEnabled) {
+      setReadyState();
+    }
+  }
+
+  async function submitBufferedAudio() {
+    if (!liveSessionRef.current || !isVoiceEnabledRef.current) {
+      stopRecording();
+      clearBufferedAudio();
+      resetSpeechTracking();
+      setReadyState();
+      return false;
+    }
+
+    stopRecording();
+
+    if (
+      bufferedAudioChunksRef.current.length === 0 ||
+      !hasBufferedSpeech()
+    ) {
+      clearBufferedAudio();
+      resetSpeechTracking();
+      setReadyState();
+      return false;
+    }
+
+    const chunks = [...bufferedAudioChunksRef.current];
+    clearBufferedAudio();
+    resetSpeechTracking();
+    updateAwaitingResponse(true);
+    setReadyState();
+
+    try {
+      for (const chunk of chunks) {
+        liveSessionRef.current.sendRealtimeInput({
+          audio: chunk,
+        });
+      }
+
+      liveSessionRef.current.sendRealtimeInput({
+        audioStreamEnd: true,
+      });
+
+      return true;
+    } catch (error) {
+      const message = getLiveErrorMessage(
+        error,
+        "Voice is unavailable right now. Continue with typed chat.",
+      );
+
+      await degradeToFallback(message);
+      throw new Error(message);
+    }
+  }
+
+  async function submitRecording() {
+    return submitBufferedAudio();
+  }
+
   async function sendTextTurn(
     text: string,
     pendingUserMessageId: string | null = null,
@@ -517,12 +682,14 @@ export function useLiveVoiceSession({
       throw new Error("Voice session is unavailable.");
     }
 
-    if (pendingTextTurnRef.current) {
+    if (pendingTextTurnRef.current || isAwaitingResponseRef.current) {
       throw new Error("Wait for the current reply before sending another message.");
     }
 
-    disableListening();
-    setVoiceState("assistant-speaking");
+    stopRecording();
+    clearBufferedAudio();
+    updateAwaitingResponse(true);
+    setReadyState();
 
     await new Promise<void>((resolve, reject) => {
       pendingTextTurnRef.current = {
@@ -551,10 +718,15 @@ export function useLiveVoiceSession({
   }, [chatSessionId]);
 
   return {
+    cancelRecording,
     connect,
     disconnect,
+    isAwaitingResponse,
+    isRecording: voiceState === "recording",
     isVoiceEnabled,
     sendTextTurn,
+    startRecording,
+    submitRecording,
     voiceError,
     voiceState,
   };

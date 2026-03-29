@@ -9,8 +9,9 @@ export type KioskState = "idle" | "chat" | "lead" | "thanks";
 export type VoiceSessionState =
   | "idle"
   | "connecting"
+  | "ready"
+  | "recording"
   | "assistant-speaking"
-  | "customer-listening"
   | "fallback";
 
 export interface KioskExperienceProps {
