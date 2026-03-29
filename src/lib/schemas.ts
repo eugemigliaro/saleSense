@@ -8,6 +8,7 @@ const PRODUCT_COMPARISON_SNIPPET_MAX_LENGTH = 4_000;
 const PRODUCT_IDLE_MEDIA_URL_MAX_LENGTH = 2_048;
 const PRODUCT_SOURCE_URL_MAX_ITEMS = 20;
 const PRODUCT_IMPORT_SOURCE_URL_MAX_ITEMS = 5;
+const DEVICE_SESSION_LABEL_MAX_LENGTH = 80;
 
 const LEAD_NAME_MAX_LENGTH = 120;
 const LEAD_EMAIL_MAX_LENGTH = 320;
@@ -158,6 +159,7 @@ export const productIdParamsSchema = z.object({
 
 export const createDeviceSessionSchema = z
   .object({
+    label: optionalText("Device label", DEVICE_SESSION_LABEL_MAX_LENGTH),
     productId: z.string().uuid("Product id must be a valid UUID."),
   })
   .strict();
@@ -165,6 +167,12 @@ export const createDeviceSessionSchema = z
 export const deviceSessionIdParamsSchema = z.object({
   id: z.string().uuid("Device session id must be a valid UUID."),
 });
+
+export const listDeviceSessionsQuerySchema = z
+  .object({
+    productId: z.string().uuid("Product id must be a valid UUID.").optional(),
+  })
+  .strict();
 
 export const createLeadSchema = z
   .object({

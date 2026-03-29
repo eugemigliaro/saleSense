@@ -142,3 +142,35 @@ export interface ChatSessionLiveToolCallPayload {
     role: "user";
   };
 }
+
+export interface DeviceSessionLaunchPayload {
+  deviceSession: {
+    claimedAt: string | null;
+    dismissedAt: string | null;
+    id: string;
+    lastActivityAt: string;
+    lastPresenceAt: string | null;
+    label: string | null;
+    launchedByManagerId: string;
+    productId: string;
+    startedAt: string;
+    state: "idle" | "engaged" | "collecting-lead" | "completed";
+    storeId: string;
+  };
+  kioskUrl: string;
+}
+
+export interface DeviceSessionSummaryPayload {
+  attentionState: "healthy" | "attention-needed";
+  claimedAt: string | null;
+  dismissedAt: string | null;
+  id: string;
+  lastActivityAt: string;
+  lastPresenceAt: string | null;
+  label: string | null;
+  launchedByManagerId: string;
+  productId: string;
+  startedAt: string;
+  state: "idle" | "engaged" | "collecting-lead" | "completed";
+  storeId: string;
+}

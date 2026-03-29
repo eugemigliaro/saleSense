@@ -1,6 +1,8 @@
+import { assertStoreScope, getSellerContext } from "@/lib/auth";
 import {
   jsonNotFoundError,
   jsonServerError,
+  jsonUnauthorizedError,
   jsonValidationError,
 } from "@/lib/api-request";
 import { jsonSuccess } from "@/lib/api-response";
@@ -14,6 +16,12 @@ interface DeviceSessionRouteContext {
 }
 
 export async function GET(_: Request, context: DeviceSessionRouteContext) {
+  const sellerContext = await getSellerContext();
+
+  if (!sellerContext) {
+    return jsonUnauthorizedError();
+  }
+
   try {
     const paramsResult = deviceSessionIdParamsSchema.safeParse(
       await context.params,
@@ -25,7 +33,7 @@ export async function GET(_: Request, context: DeviceSessionRouteContext) {
 
     const detail = await getDeviceSessionDetailById(paramsResult.data.id);
 
-    if (!detail) {
+    if (!detail || !assertStoreScope(detail.deviceSession.storeId, sellerContext)) {
       return jsonNotFoundError("Device session not found.");
     }
 

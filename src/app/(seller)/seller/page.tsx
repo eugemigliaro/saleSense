@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { countActiveDeviceSessionsByStore } from "@/lib/device-sessions";
+import { listUndismissedDeviceSessionsByStore } from "@/lib/device-sessions";
 import { listLeadsByStore } from "@/lib/leads";
 import { listProductsByStore } from "@/lib/products";
 import { requireSellerContext } from "@/lib/auth";
@@ -10,10 +10,10 @@ import SellerWorkspace from "./SellerWorkspace";
 
 export default async function SellerPage() {
   const sellerContext = await requireSellerContext();
-  const [activeDevicesCount, initialProducts, initialLeads] = await Promise.all([
-    countActiveDeviceSessionsByStore(sellerContext.storeId),
+  const [initialProducts, initialLeads, initialDeviceSessions] = await Promise.all([
     listProductsByStore(sellerContext.storeId),
     listLeadsByStore(sellerContext.storeId),
+    listUndismissedDeviceSessionsByStore(sellerContext.storeId),
   ]);
 
   return (
@@ -33,7 +33,7 @@ export default async function SellerPage() {
       </header>
 
       <SellerWorkspace
-        activeDevicesCount={activeDevicesCount}
+        initialDeviceSessions={initialDeviceSessions}
         initialLeads={initialLeads}
         initialProducts={initialProducts}
       />

@@ -74,7 +74,9 @@ export function mapChatMessageRow(row: ChatMessageRow): ChatMessage {
   };
 }
 
-async function completeActiveChatSessionsForDeviceSession(deviceSessionId: string) {
+export async function completeChatSessionsForDeviceSession(
+  deviceSessionId: string,
+) {
   const supabase = createAdminSupabaseClient();
   const { error } = await supabase
     .from("chat_sessions")
@@ -108,7 +110,7 @@ export async function createChatSessionForDeviceSession(deviceSessionId: string)
     return null;
   }
 
-  await completeActiveChatSessionsForDeviceSession(deviceSessionId);
+  await completeChatSessionsForDeviceSession(deviceSessionId);
 
   const insertPayload: ChatSessionInsert = {
     device_session_id: deviceSessionId,
@@ -247,4 +249,30 @@ export async function touchChatSession(chatSessionId: string) {
   }
 
   return data ? mapChatSessionRow(asChatSessionRow(data)) : null;
+}
+
+export async function completeChatSession(chatSessionId: string) {
+  const supabase = createAdminSupabaseClient();
+  const { data, error } = await supabase
+    .from("chat_sessions")
+    .update({
+      last_activity_at: new Date().toISOString(),
+      status: "completed",
+    })
+    .eq("id", chatSessionId)
+    .select(CHAT_SESSION_COLUMNS)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to complete chat session: ${error.message}`);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const session = mapChatSessionRow(asChatSessionRow(data));
+  await touchDeviceSession(session.deviceSessionId, "idle");
+
+  return session;
 }

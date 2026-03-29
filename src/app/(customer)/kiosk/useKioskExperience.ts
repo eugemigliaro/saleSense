@@ -6,8 +6,10 @@ import type { ChatMessageGrounding } from "@/types/api";
 import type { ChatMessage } from "@/types/domain";
 
 import {
+  completeKioskChatSession,
   createKioskChatSession,
   createKioskLead,
+  sendDeviceSessionHeartbeat,
   sendKioskChatMessage,
 } from "./kioskApi";
 import { buildMockReply, buildPreviewGreeting, createMessage } from "./kioskHelpers";
@@ -110,7 +112,19 @@ export function useKioskExperience({
     onVoiceError: handleVoiceError,
   });
 
+  function finalizeChatSession(endedChatSessionId: string | null) {
+    if (!endedChatSessionId) {
+      return;
+    }
+
+    void completeKioskChatSession(endedChatSessionId).catch((error) => {
+      console.error("Failed to complete kiosk chat session.", error);
+    });
+  }
+
   function resetExperience() {
+    const activeChatSessionId = chatSessionId;
+
     if (typingTimeoutRef.current !== null) {
       window.clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
@@ -130,11 +144,65 @@ export function useKioskExperience({
     setIsTyping(false);
     setMessages([]);
     setState("idle");
+    finalizeChatSession(activeChatSessionId);
   }
 
   const handleAutoReset = useEffectEvent(() => {
     resetExperience();
   });
+
+  const sendHeartbeat = useEffectEvent(async () => {
+    if (!deviceSessionId) {
+      return;
+    }
+
+    try {
+      await sendDeviceSessionHeartbeat(deviceSessionId);
+    } catch (error) {
+      console.error("Failed to send device session heartbeat.", error);
+    }
+  });
+
+  useEffect(() => {
+    if (!deviceSessionId) {
+      return;
+    }
+
+    let heartbeatInterval: number | null = null;
+
+    function clearHeartbeatInterval() {
+      if (heartbeatInterval !== null) {
+        window.clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+      }
+    }
+
+    function startHeartbeatLoop() {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+
+      void sendHeartbeat();
+      heartbeatInterval = window.setInterval(() => {
+        if (document.visibilityState === "visible") {
+          void sendHeartbeat();
+        }
+      }, 5000);
+    }
+
+    function handleVisibilityChange() {
+      clearHeartbeatInterval();
+      startHeartbeatLoop();
+    }
+
+    startHeartbeatLoop();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearHeartbeatInterval();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [deviceSessionId]);
 
   useEffect(() => {
     if (state !== "thanks") {

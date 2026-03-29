@@ -1,15 +1,13 @@
 import {
-  jsonConflictError,
   jsonNotFoundError,
   jsonServerError,
   jsonUnauthorizedError,
   jsonValidationError,
 } from "@/lib/api-request";
-import { createGeminiLiveToken } from "@/lib/ai/liveVoice";
 import { jsonSuccess } from "@/lib/api-response";
 import {
+  completeChatSession,
   getChatSessionContextById,
-  getFirstChatMessageBySessionId,
 } from "@/lib/chat-sessions";
 import {
   KioskAccessError,
@@ -17,7 +15,7 @@ import {
 } from "@/lib/kiosk-auth";
 import { chatSessionIdParamsSchema } from "@/lib/schemas";
 
-interface ChatSessionLiveTokenRouteContext {
+interface CompleteChatSessionRouteContext {
   params: Promise<{
     id: string;
   }>;
@@ -25,7 +23,7 @@ interface ChatSessionLiveTokenRouteContext {
 
 export async function POST(
   _request: Request,
-  context: ChatSessionLiveTokenRouteContext,
+  context: CompleteChatSessionRouteContext,
 ) {
   try {
     const paramsResult = chatSessionIdParamsSchema.safeParse(
@@ -36,9 +34,7 @@ export async function POST(
       return jsonValidationError(paramsResult.error);
     }
 
-    const chatSessionContext = await getChatSessionContextById(
-      paramsResult.data.id,
-    );
+    const chatSessionContext = await getChatSessionContextById(paramsResult.data.id);
 
     if (!chatSessionContext) {
       return jsonNotFoundError("Chat session not found.");
@@ -46,28 +42,22 @@ export async function POST(
 
     await requireKioskDeviceSessionAccess(chatSessionContext.session.deviceSessionId);
 
-    if (chatSessionContext.session.status !== "active") {
-      return jsonConflictError("Chat session is no longer active.");
+    const session = await completeChatSession(paramsResult.data.id);
+
+    if (!session) {
+      return jsonNotFoundError("Chat session not found.");
     }
 
-    const firstMessage = await getFirstChatMessageBySessionId(paramsResult.data.id);
-
-    if (!firstMessage || firstMessage.role !== "assistant") {
-      return jsonConflictError("Chat session opener is unavailable.");
-    }
-
-    const token = await createGeminiLiveToken(firstMessage.content);
-
-    return jsonSuccess(token, {
-      status: 201,
+    return jsonSuccess({
+      session,
     });
   } catch (error) {
     if (error instanceof KioskAccessError) {
       return jsonUnauthorizedError("Kiosk session is not authorized.");
     }
 
-    console.error("Failed to create live voice token.", error);
+    console.error("Failed to complete chat session.", error);
 
-    return jsonServerError("Failed to create live voice token.");
+    return jsonServerError("Failed to complete chat session.");
   }
 }

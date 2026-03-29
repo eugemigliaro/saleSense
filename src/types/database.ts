@@ -98,8 +98,13 @@ export interface Database {
       };
       device_sessions: {
         Insert: {
+          claimed_at?: string | null;
+          dismissed_at?: string | null;
           id?: string;
+          kiosk_token_hash?: string | null;
           last_activity_at?: string;
+          last_presence_at?: string | null;
+          label?: string | null;
           launched_by_manager_id: string;
           product_id: string;
           started_at?: string;
@@ -116,8 +121,13 @@ export interface Database {
           },
         ];
         Row: {
+          claimed_at: string | null;
+          dismissed_at: string | null;
           id: string;
+          kiosk_token_hash: string | null;
           last_activity_at: string;
+          last_presence_at: string | null;
+          label: string | null;
           launched_by_manager_id: string;
           product_id: string;
           started_at: string;
@@ -125,8 +135,13 @@ export interface Database {
           store_id: string;
         };
         Update: {
+          claimed_at?: string | null;
+          dismissed_at?: string | null;
           id?: string;
+          kiosk_token_hash?: string | null;
           last_activity_at?: string;
+          last_presence_at?: string | null;
+          label?: string | null;
           launched_by_manager_id?: string;
           product_id?: string;
           started_at?: string;

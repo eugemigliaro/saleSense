@@ -5,6 +5,7 @@ import {
   getChatSessionContextById,
   getFirstChatMessageBySessionId,
 } from "@/lib/chat-sessions";
+import { requireKioskDeviceSessionAccess } from "@/lib/kiosk-auth";
 
 import { POST } from "./route";
 
@@ -17,13 +18,35 @@ vi.mock("@/lib/chat-sessions", () => ({
   getFirstChatMessageBySessionId: vi.fn(),
 }));
 
+vi.mock("@/lib/kiosk-auth", () => ({
+  KioskAccessError: class KioskAccessError extends Error {},
+  requireKioskDeviceSessionAccess: vi.fn(),
+}));
+
 const mockCreateGeminiLiveToken = vi.mocked(createGeminiLiveToken);
 const mockGetChatSessionContextById = vi.mocked(getChatSessionContextById);
 const mockGetFirstChatMessageBySessionId = vi.mocked(getFirstChatMessageBySessionId);
+const mockRequireKioskDeviceSessionAccess = vi.mocked(
+  requireKioskDeviceSessionAccess,
+);
 
 describe("/api/v1/chat-sessions/[id]/live-token", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRequireKioskDeviceSessionAccess.mockResolvedValue({
+      claimed_at: "2026-03-28T08:20:00.000Z",
+      dismissed_at: null,
+      id: "22222222-2222-4222-8222-222222222222",
+      kiosk_token_hash: "hash",
+      label: "Front table",
+      last_activity_at: "2026-03-28T08:20:00.000Z",
+      last_presence_at: "2026-03-28T08:20:00.000Z",
+      launched_by_manager_id: "seller-1",
+      product_id: "11111111-1111-4111-8111-111111111111",
+      started_at: "2026-03-28T08:20:00.000Z",
+      state: "engaged",
+      store_id: "store-1",
+    });
   });
 
   it("returns 404 when the chat session does not exist", async () => {

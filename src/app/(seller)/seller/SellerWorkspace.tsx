@@ -1,62 +1,115 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Monitor, Package, Users } from "lucide-react";
-import { useEffect, useEffectEvent, useState } from "react";
+import { AnimatePresence } from "framer-motion";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 
 import { SlideTabs } from "@/components/ui/slide-tabs";
-import type { Lead, Product } from "@/types/domain";
+import type { Lead, MonitoredDeviceSession, Product } from "@/types/domain";
 
+import { LaunchDeviceDialog } from "./LaunchDeviceDialog";
+import { ProductSessionsDialog } from "./ProductSessionsDialog";
 import { SellerDashboardView } from "./SellerDashboardView";
 import { SellerLeadsView } from "./SellerLeadsView";
 import { SellerProductsView } from "./SellerProductsView";
-import { fetchLeadsRequest, launchProductRequest } from "./workspaceApi";
+import {
+  dismissDeviceSessionRequest,
+  fetchDeviceSessionsRequest,
+  fetchLeadsRequest,
+  launchProductRequest,
+} from "./workspaceApi";
 
 interface SellerWorkspaceProps {
-  activeDevicesCount: number;
+  initialDeviceSessions: MonitoredDeviceSession[];
   initialLeads: Lead[];
   initialProducts: Product[];
 }
+
 type SellerWorkspaceTab = "products" | "dashboard" | "leads";
 
+function getAttentionCountByProduct(deviceSessions: MonitoredDeviceSession[]) {
+  const counts = new Map<string, number>();
+
+  for (const session of deviceSessions) {
+    if (session.attentionState !== "attention-needed") {
+      continue;
+    }
+
+    counts.set(session.productId, (counts.get(session.productId) ?? 0) + 1);
+  }
+
+  return counts;
+}
+
+function getSessionCountByProduct(deviceSessions: MonitoredDeviceSession[]) {
+  const counts = new Map<string, number>();
+
+  for (const session of deviceSessions) {
+    counts.set(session.productId, (counts.get(session.productId) ?? 0) + 1);
+  }
+
+  return counts;
+}
+
 export default function SellerWorkspace({
-  activeDevicesCount,
+  initialDeviceSessions,
   initialLeads,
   initialProducts,
 }: SellerWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<SellerWorkspaceTab>("products");
+  const [deviceSessions, setDeviceSessions] = useState(initialDeviceSessions);
   const [leads, setLeads] = useState(initialLeads);
-  const [activeDevices, setActiveDevices] = useState(activeDevicesCount);
-  const [launchingProductId, setLaunchingProductId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [launchingProduct, setLaunchingProduct] = useState<Product | null>(null);
+  const [launchLabel, setLaunchLabel] = useState("");
+  const [isLaunching, setIsLaunching] = useState(false);
+  const [sessionProductId, setSessionProductId] = useState<string | null>(null);
+  const [isDismissingSessionId, setIsDismissingSessionId] = useState<string | null>(
+    null,
+  );
 
-  async function handleLaunch(product: Product) {
-    setErrorMessage(null);
-    setLaunchingProductId(product.id);
+  const tabs: Array<{ key: SellerWorkspaceTab; label: string }> = [
+    { key: "products", label: "Products" },
+    { key: "dashboard", label: "Dashboard" },
+    { key: "leads", label: "Leads" },
+  ];
 
+  const attentionCountByProduct = useMemo(
+    () => getAttentionCountByProduct(deviceSessions),
+    [deviceSessions],
+  );
+  const sessionCountByProduct = useMemo(
+    () => getSessionCountByProduct(deviceSessions),
+    [deviceSessions],
+  );
+  const activeSessionProduct = useMemo(
+    () =>
+      sessionProductId
+        ? initialProducts.find((product) => product.id === sessionProductId) ?? null
+        : null,
+    [initialProducts, sessionProductId],
+  );
+  const sessionsForActiveProduct = useMemo(
+    () =>
+      sessionProductId
+        ? deviceSessions.filter((session) => session.productId === sessionProductId)
+        : [],
+    [deviceSessions, sessionProductId],
+  );
+
+  async function loadDeviceSessions() {
     try {
-      const deviceSession = await launchProductRequest(product.id);
-      setActiveDevices((currentCount) => currentCount + 1);
-      const nextUrl = `/kiosk?session=${deviceSession.id}`;
-      const kioskTab = window.open(nextUrl, "_blank", "noopener,noreferrer");
-
-      if (kioskTab) {
-        kioskTab.focus();
-      }
+      const nextDeviceSessions = await fetchDeviceSessionsRequest();
+      setDeviceSessions(nextDeviceSessions);
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Failed to launch the kiosk session.",
+          : "Failed to refresh device sessions.",
       );
-    } finally {
-      setLaunchingProductId(null);
     }
   }
 
-  const refreshLeads = useEffectEvent(async () => {
-    setErrorMessage(null);
-
+  async function loadLeads() {
     try {
       const nextLeads = await fetchLeadsRequest();
       setLeads(nextLeads);
@@ -65,16 +118,79 @@ export default function SellerWorkspace({
         error instanceof Error ? error.message : "Failed to refresh leads.",
       );
     }
+  }
+
+  async function handleLaunchConfirm() {
+    if (!launchingProduct) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setIsLaunching(true);
+
+    try {
+      const launchResult = await launchProductRequest(
+        launchingProduct.id,
+        launchLabel.trim() || undefined,
+      );
+
+      window.location.assign(launchResult.kioskUrl);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to set up this device.",
+      );
+      setIsLaunching(false);
+    }
+  }
+
+  async function handleDismissSession(deviceSessionId: string) {
+    setErrorMessage(null);
+    setIsDismissingSessionId(deviceSessionId);
+
+    try {
+      await dismissDeviceSessionRequest(deviceSessionId);
+      await loadDeviceSessions();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to dismiss the device alert.",
+      );
+    } finally {
+      setIsDismissingSessionId(null);
+    }
+  }
+
+  const refreshDeviceSessions = useEffectEvent(() => {
+    void loadDeviceSessions();
   });
+
+  const refreshLeads = useEffectEvent(() => {
+    void loadLeads();
+  });
+
+  useEffect(() => {
+    const refreshInterval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void refreshDeviceSessions();
+      }
+    }, 5000);
+
+    return () => {
+      window.clearInterval(refreshInterval);
+    };
+  }, []);
 
   useEffect(() => {
     function handleWindowFocus() {
       void refreshLeads();
+      void refreshDeviceSessions();
     }
 
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
         void refreshLeads();
+        void refreshDeviceSessions();
       }
     }
 
@@ -87,71 +203,80 @@ export default function SellerWorkspace({
     };
   }, []);
 
-  const stats = [
-    { label: "Products", value: initialProducts.length, icon: Package },
-    { label: "Active Devices", value: activeDevices, icon: Monitor },
-    { label: "Leads Captured", value: leads.length, icon: Users },
-  ];
-  const tabs: Array<{ key: SellerWorkspaceTab; label: string }> = [
-    { key: "products", label: "Products" },
-    { key: "dashboard", label: "Dashboard" },
-    { key: "leads", label: "Leads" },
-  ];
-
   return (
-    <main className="mx-auto max-w-5xl px-6 py-8">
-      {errorMessage ? (
-        <div className="mb-6 rounded-xl border border-destructive/20 bg-destructive/8 px-4 py-3 ui-text-small text-destructive">
-          {errorMessage}
+    <>
+      <main className="mx-auto max-w-5xl px-6 py-8">
+        {errorMessage ? (
+          <div className="mb-6 rounded-xl border border-destructive/20 bg-destructive/8 px-4 py-3 ui-text-small text-destructive">
+            {errorMessage}
+          </div>
+        ) : null}
+
+        <div className="mb-6 flex justify-center">
+          <SlideTabs items={tabs} activeKey={activeTab} onChange={setActiveTab} />
         </div>
-      ) : null}
 
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {stats.map((stat) => (
-          <motion.div
-            key={stat.label}
-            className="rounded-xl border border-border bg-card p-5"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-primary/10 p-2">
-                <stat.icon className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <p className="font-display ui-text-large font-bold">{stat.value}</p>
-                <p className="ui-text-small text-muted-foreground">{stat.label}</p>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+        <div className="min-h-[32rem]">
+          {activeTab === "products" ? (
+            <SellerProductsView
+              attentionCountByProduct={attentionCountByProduct}
+              launchingProductId={isLaunching ? launchingProduct?.id ?? null : null}
+              onLaunch={(product) => {
+                setErrorMessage(null);
+                setLaunchLabel("");
+                setLaunchingProduct(product);
+              }}
+              onOpenSessions={(productId) => {
+                setErrorMessage(null);
+                setSessionProductId(productId);
+              }}
+              products={initialProducts}
+              sessionCountByProduct={sessionCountByProduct}
+            />
+          ) : null}
 
-      <div className="mb-6 flex justify-center">
-        <SlideTabs
-          items={tabs}
-          activeKey={activeTab}
-          onChange={setActiveTab}
-        />
-      </div>
+          {activeTab === "dashboard" ? (
+            <SellerDashboardView leads={leads} products={initialProducts} />
+          ) : null}
 
-      <div className="min-h-[32rem]">
-        {activeTab === "products" ? (
-          <SellerProductsView
-            launchingProductId={launchingProductId}
-            onLaunch={handleLaunch}
-            products={initialProducts}
+          {activeTab === "leads" ? (
+            <SellerLeadsView leads={leads} products={initialProducts} />
+          ) : null}
+        </div>
+      </main>
+
+      <AnimatePresence>
+        {launchingProduct ? (
+          <LaunchDeviceDialog
+            errorMessage={errorMessage}
+            isLaunching={isLaunching}
+            label={launchLabel}
+            onClose={() => {
+              if (isLaunching) {
+                return;
+              }
+
+              setLaunchingProduct(null);
+              setLaunchLabel("");
+            }}
+            onConfirm={handleLaunchConfirm}
+            onLabelChange={setLaunchLabel}
+            productName={launchingProduct.name}
           />
         ) : null}
+      </AnimatePresence>
 
-        {activeTab === "dashboard" ? (
-          <SellerDashboardView leads={leads} products={initialProducts} />
+      <AnimatePresence>
+        {activeSessionProduct ? (
+          <ProductSessionsDialog
+            isDismissingSessionId={isDismissingSessionId}
+            onClose={() => setSessionProductId(null)}
+            onDismissSession={handleDismissSession}
+            productName={activeSessionProduct.name}
+            sessions={sessionsForActiveProduct}
+          />
         ) : null}
-
-        {activeTab === "leads" ? (
-          <SellerLeadsView leads={leads} products={initialProducts} />
-        ) : null}
-      </div>
-    </main>
+      </AnimatePresence>
+    </>
   );
 }

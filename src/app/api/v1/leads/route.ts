@@ -9,6 +9,8 @@ import {
   readJsonBody,
 } from "@/lib/api-request";
 import { jsonSuccess } from "@/lib/api-response";
+import { getChatSessionContextById } from "@/lib/chat-sessions";
+import { getVerifiedKioskDeviceSessionRow } from "@/lib/kiosk-auth";
 import {
   createLeadForProduct,
   listLeadsByStore,
@@ -45,9 +47,30 @@ export async function POST(request: Request) {
       return jsonValidationError(validationResult.error);
     }
 
-    const lead = await createLeadForProduct(
-      normalizeCreateLeadInput(validationResult.data),
-    );
+    const kioskDeviceSession = await getVerifiedKioskDeviceSessionRow();
+
+    if (!kioskDeviceSession) {
+      return jsonUnauthorizedError("Kiosk session is not authorized.");
+    }
+
+    const input = normalizeCreateLeadInput(validationResult.data);
+
+    if (kioskDeviceSession.product_id !== input.productId) {
+      return jsonUnauthorizedError("Kiosk session is not authorized.");
+    }
+
+    if (input.chatSessionId) {
+      const chatSessionContext = await getChatSessionContextById(input.chatSessionId);
+
+      if (
+        !chatSessionContext ||
+        chatSessionContext.session.deviceSessionId !== kioskDeviceSession.id
+      ) {
+        return jsonUnauthorizedError("Kiosk session is not authorized.");
+      }
+    }
+
+    const lead = await createLeadForProduct(input);
 
     if (!lead) {
       return jsonNotFoundError("Product not found.");

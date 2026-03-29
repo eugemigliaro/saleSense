@@ -42,6 +42,24 @@ export async function createKioskChatSession(deviceSessionId: string) {
   } satisfies LiveChatSessionResult;
 }
 
+export async function sendDeviceSessionHeartbeat(deviceSessionId: string) {
+  const response = await fetch(
+    `/api/v1/device-sessions/${deviceSessionId}/heartbeats`,
+    {
+      method: "POST",
+    },
+  );
+
+  if (!response.ok) {
+    const errorPayload = await readJsonResponse<ApiErrorResponse>(response);
+    throw new Error(
+      errorPayload.error.message || "Failed to update device visibility.",
+    );
+  }
+
+  return readJsonResponse<ApiSuccessResponse<{ acknowledged: true }>>(response);
+}
+
 export async function sendKioskChatMessage(
   chatSessionId: string,
   content: string,
@@ -86,6 +104,21 @@ export async function createKioskLiveToken(chatSessionId: string) {
     await readJsonResponse<ApiSuccessResponse<KioskLiveTokenResult>>(response);
 
   return payload.data satisfies KioskLiveTokenResult;
+}
+
+export async function completeKioskChatSession(chatSessionId: string) {
+  const response = await fetch(`/api/v1/chat-sessions/${chatSessionId}/complete`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const errorPayload = await readJsonResponse<ApiErrorResponse>(response);
+    throw new Error(
+      errorPayload.error.message || "Failed to complete chat session.",
+    );
+  }
+
+  await readJsonResponse<ApiSuccessResponse<{ session: { id: string } }>>(response);
 }
 
 export async function sendKioskLiveToolCall(

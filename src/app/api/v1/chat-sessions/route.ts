@@ -3,6 +3,7 @@ import {
   jsonInvalidJsonError,
   jsonNotFoundError,
   jsonServerError,
+  jsonUnauthorizedError,
   jsonValidationError,
   readJsonBody,
 } from "@/lib/api-request";
@@ -12,6 +13,10 @@ import {
   appendChatMessage,
   createChatSessionForDeviceSession,
 } from "@/lib/chat-sessions";
+import {
+  KioskAccessError,
+  requireKioskDeviceSessionAccess,
+} from "@/lib/kiosk-auth";
 import { createChatSessionSchema } from "@/lib/schemas";
 
 export async function POST(request: Request) {
@@ -22,6 +27,8 @@ export async function POST(request: Request) {
     if (!validationResult.success) {
       return jsonValidationError(validationResult.error);
     }
+
+    await requireKioskDeviceSessionAccess(validationResult.data.deviceSessionId);
 
     const context = await createChatSessionForDeviceSession(
       validationResult.data.deviceSessionId,
@@ -52,6 +59,10 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof InvalidJsonBodyError) {
       return jsonInvalidJsonError();
+    }
+
+    if (error instanceof KioskAccessError) {
+      return jsonUnauthorizedError("Kiosk session is not authorized.");
     }
 
     console.error("Failed to create chat session.", error);

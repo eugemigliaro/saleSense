@@ -5,6 +5,7 @@ import {
   createChatSessionForDeviceSession,
 } from "@/lib/chat-sessions";
 import { generateChatOpener } from "@/lib/ai/chatOpener";
+import { requireKioskDeviceSessionAccess } from "@/lib/kiosk-auth";
 
 import { POST } from "./route";
 
@@ -17,15 +18,37 @@ vi.mock("@/lib/chat-sessions", () => ({
   createChatSessionForDeviceSession: vi.fn(),
 }));
 
+vi.mock("@/lib/kiosk-auth", () => ({
+  KioskAccessError: class KioskAccessError extends Error {},
+  requireKioskDeviceSessionAccess: vi.fn(),
+}));
+
 const mockCreateChatSessionForDeviceSession = vi.mocked(
   createChatSessionForDeviceSession,
 );
 const mockAppendChatMessage = vi.mocked(appendChatMessage);
 const mockGenerateChatOpener = vi.mocked(generateChatOpener);
+const mockRequireKioskDeviceSessionAccess = vi.mocked(
+  requireKioskDeviceSessionAccess,
+);
 
 describe("/api/v1/chat-sessions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRequireKioskDeviceSessionAccess.mockResolvedValue({
+      claimed_at: "2026-03-28T08:20:00.000Z",
+      dismissed_at: null,
+      id: "11111111-1111-4111-8111-111111111111",
+      kiosk_token_hash: "hash",
+      label: "Front table",
+      last_activity_at: "2026-03-28T08:20:00.000Z",
+      last_presence_at: "2026-03-28T08:20:00.000Z",
+      launched_by_manager_id: "seller-1",
+      product_id: "11111111-1111-4111-8111-111111111111",
+      started_at: "2026-03-28T08:20:00.000Z",
+      state: "idle",
+      store_id: "store-1",
+    });
   });
 
   it("returns 404 when the device session does not exist", async () => {

@@ -1,13 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { getSellerContext } from "@/lib/auth";
 import { getDeviceSessionDetailById } from "@/lib/device-sessions";
 
 import { GET } from "./route";
+
+vi.mock("@/lib/auth", () => ({
+  assertStoreScope: vi.fn((requestedStoreId: string, sellerContext: { storeId: string }) =>
+    requestedStoreId === sellerContext.storeId,
+  ),
+  getSellerContext: vi.fn(),
+}));
 
 vi.mock("@/lib/device-sessions", () => ({
   getDeviceSessionDetailById: vi.fn(),
 }));
 
+const mockGetSellerContext = vi.mocked(getSellerContext);
 const mockGetDeviceSessionDetailById = vi.mocked(getDeviceSessionDetailById);
 
 describe("/api/v1/device-sessions/[id]", () => {
@@ -15,7 +24,24 @@ describe("/api/v1/device-sessions/[id]", () => {
     vi.clearAllMocks();
   });
 
+  it("returns 401 when the seller is not authenticated", async () => {
+    mockGetSellerContext.mockResolvedValue(null);
+
+    const response = await GET(new Request("http://localhost"), {
+      params: Promise.resolve({
+        id: "11111111-1111-4111-8111-111111111111",
+      }),
+    });
+
+    expect(response.status).toBe(401);
+  });
+
   it("returns 404 when the device session does not exist", async () => {
+    mockGetSellerContext.mockResolvedValue({
+      email: "manager@store.test",
+      storeId: "store-1",
+      userId: "seller-1",
+    });
     mockGetDeviceSessionDetailById.mockResolvedValue(null);
 
     const response = await GET(new Request("http://localhost"), {

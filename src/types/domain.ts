@@ -8,6 +8,8 @@ export type DeviceSessionState =
   | "collecting-lead"
   | "completed";
 
+export type DeviceSessionAttentionState = "healthy" | "attention-needed";
+
 export interface StoreManager {
   email: string;
   id: string;
@@ -31,13 +33,21 @@ export interface Product {
 }
 
 export interface DeviceSession {
+  claimedAt: string | null;
+  dismissedAt: string | null;
   id: string;
   lastActivityAt: string;
+  lastPresenceAt: string | null;
+  label: string | null;
   launchedByManagerId: string;
   productId: string;
   startedAt: string;
   state: DeviceSessionState;
   storeId: string;
+}
+
+export interface MonitoredDeviceSession extends DeviceSession {
+  attentionState: DeviceSessionAttentionState;
 }
 
 export interface ChatSession {

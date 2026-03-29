@@ -1,9 +1,15 @@
 import type {
   ApiErrorResponse,
   ApiSuccessResponse,
+  DeviceSessionLaunchPayload,
   ProductImportDraftPayload,
 } from "@/types/api";
-import type { Lead, Product } from "@/types/domain";
+import type {
+  DeviceSession,
+  Lead,
+  MonitoredDeviceSession,
+  Product,
+} from "@/types/domain";
 
 import type { ProductFormState } from "./sellerWorkspaceUtils";
 
@@ -52,15 +58,34 @@ export async function importProductDraftRequest(sourceUrls: string[]) {
   );
 }
 
-export async function launchProductRequest(productId: string) {
-  return readApiData<{ id: string }>(
+export async function launchProductRequest(productId: string, label?: string) {
+  return readApiData<DeviceSessionLaunchPayload>(
     await fetch("/api/v1/device-sessions", {
       body: JSON.stringify({
+        ...(label ? { label } : {}),
         productId,
       }),
       headers: {
         "content-type": "application/json",
       },
+      method: "POST",
+    }),
+  );
+}
+
+export async function fetchDeviceSessionsRequest(productId?: string) {
+  const query = productId ? `?productId=${encodeURIComponent(productId)}` : "";
+
+  return readApiData<MonitoredDeviceSession[]>(
+    await fetch(`/api/v1/device-sessions${query}`, {
+      method: "GET",
+    }),
+  );
+}
+
+export async function dismissDeviceSessionRequest(deviceSessionId: string) {
+  return readApiData<{ session: DeviceSession }>(
+    await fetch(`/api/v1/device-sessions/${deviceSessionId}/dismiss`, {
       method: "POST",
     }),
   );
