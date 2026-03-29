@@ -2,7 +2,7 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
-import type { ChatMessageGrounding } from "@/types/api";
+import type { ChatMessageGrounding, LeadCaptureInstruction } from "@/types/api";
 import type { ChatMessage } from "@/types/domain";
 
 import {
@@ -17,7 +17,12 @@ import {
   buildPreviewGreeting,
   createMessage,
 } from "./kioskHelpers";
-import type { KioskState, LiveChatSessionResult } from "./kioskTypes";
+import type {
+  KioskLeadCaptureState,
+  KioskLiveToolCallResult,
+  KioskState,
+  LiveChatSessionResult,
+} from "./kioskTypes";
 import { useLiveVoiceSession } from "./useLiveVoiceSession";
 
 const CHAT_INACTIVITY_TIMEOUT_MS = 10_000;
@@ -65,11 +70,16 @@ export function useKioskExperience({
   const [isAwaitingReply, setIsAwaitingReply] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatSessionId, setChatSessionId] = useState<string | null>(null);
-  const [customerName, setCustomerName] = useState("");
-  const [customerEmail, setCustomerEmail] = useState("");
-  const [leadError, setLeadError] = useState<string | null>(null);
+  const [inlineLeadCaptureEmail, setInlineLeadCaptureEmail] = useState("");
+  const [inlineLeadCaptureError, setInlineLeadCaptureError] = useState<string | null>(
+    null,
+  );
+  const [inlineLeadCaptureInstruction, setInlineLeadCaptureInstruction] =
+    useState<LeadCaptureInstruction | null>(null);
+  const [inlineLeadCaptureState, setInlineLeadCaptureState] =
+    useState<KioskLeadCaptureState>("idle");
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
-  const [isSubmittingLead, setIsSubmittingLead] = useState(false);
+  const [isSubmittingInlineLead, setIsSubmittingInlineLead] = useState(false);
   const [isVoiceDefaultEnabled, setIsVoiceDefaultEnabled] = useState(true);
   const [activityTick, setActivityTick] = useState(0);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
@@ -78,12 +88,20 @@ export function useKioskExperience({
   );
   const typingTimeoutRef = useRef<number | null>(null);
 
+  function applyLeadCaptureInstruction(
+    instruction: LeadCaptureInstruction | null,
+  ) {
+    if (!instruction?.shouldPrompt) {
+      return;
+    }
+
+    setInlineLeadCaptureInstruction(instruction);
+    setInlineLeadCaptureState("prompted");
+    setInlineLeadCaptureError(null);
+  }
+
   function handleResolvedVoiceTurn(
-    result: {
-      assistantMessage: ChatMessage;
-      grounding: ChatMessageGrounding | null;
-      userMessage: ChatMessage;
-    },
+    result: KioskLiveToolCallResult,
     pendingUserMessageId: string | null,
   ) {
     setChatError(null);
@@ -108,6 +126,7 @@ export function useKioskExperience({
         result.grounding,
       ),
     );
+    applyLeadCaptureInstruction(result.leadCapture);
     setIsAwaitingReply(false);
   }
 
@@ -118,6 +137,7 @@ export function useKioskExperience({
 
   const voiceSession = useLiveVoiceSession({
     chatSessionId,
+    leadCaptureState: inlineLeadCaptureState,
     onResolvedTurn: handleResolvedVoiceTurn,
     onVoiceError: handleVoiceError,
   });
@@ -151,12 +171,13 @@ export function useKioskExperience({
     }
 
     void voiceSession.disconnect();
-    setCustomerEmail("");
-    setCustomerName("");
     setChatError(null);
-    setLeadError(null);
+    setInlineLeadCaptureEmail("");
+    setInlineLeadCaptureError(null);
+    setInlineLeadCaptureInstruction(null);
+    setInlineLeadCaptureState("idle");
     setFeedbackError(null);
-    setIsSubmittingLead(false);
+    setIsSubmittingInlineLead(false);
     setIsSubmittingFeedback(false);
     setChatSessionId(null);
     chatSessionRequestRef.current = null;
@@ -172,6 +193,11 @@ export function useKioskExperience({
 
   const handleAutoReset = useEffectEvent(() => {
     resetExperience();
+  });
+
+  const handleAutoFeedbackTransition = useEffectEvent(async () => {
+    await voiceSession.disconnect();
+    setState("feedback");
   });
 
   function recordConversationActivity() {
@@ -260,7 +286,7 @@ export function useKioskExperience({
   }, []);
 
   useEffect(() => {
-    if (state !== "chat" && state !== "lead" && state !== "feedback") {
+    if (state !== "chat" && state !== "feedback") {
       return;
     }
 
@@ -311,19 +337,15 @@ export function useKioskExperience({
 
   const hasUserMessages = messages.some((message) => message.role === "user");
 
-  const handleAutoLeadCapture = useEffectEvent(async () => {
-    await voiceSession.disconnect();
-    setState("lead");
-  });
-
   useEffect(() => {
-    if (state !== "chat" && state !== "lead" && state !== "feedback") {
+    if (state !== "chat" && state !== "feedback") {
       return;
     }
 
     if (
       state === "chat" &&
       (isAwaitingReply ||
+        voiceSession.isRecording ||
         voiceSession.isAwaitingResponse ||
         voiceSession.voiceState === "assistant-speaking" ||
         voiceSession.voiceState === "connecting")
@@ -342,7 +364,7 @@ export function useKioskExperience({
           return;
         }
 
-        void handleAutoLeadCapture();
+        void handleAutoFeedbackTransition();
         return;
       }
 
@@ -356,15 +378,16 @@ export function useKioskExperience({
     activeGroundingMessageId,
     activityTick,
     chatError,
-    customerEmail,
-    customerName,
     draft,
     feedbackError,
     hasUserMessages,
     isAwaitingReply,
-    leadError,
+    inlineLeadCaptureEmail,
+    inlineLeadCaptureError,
+    inlineLeadCaptureState,
     messages,
     state,
+    voiceSession.isRecording,
     voiceSession.isAwaitingResponse,
     voiceSession.voiceState,
   ]);
@@ -397,7 +420,10 @@ export function useKioskExperience({
 
   async function startExperience() {
     setChatError(null);
-    setLeadError(null);
+    setInlineLeadCaptureEmail("");
+    setInlineLeadCaptureError(null);
+    setInlineLeadCaptureInstruction(null);
+    setInlineLeadCaptureState("idle");
     setFeedbackError(null);
     setMessages([]);
     setGroundingByMessageId({});
@@ -519,6 +545,7 @@ export function useKioskExperience({
         const response = await sendKioskChatMessage(
           activeChatSessionId,
           normalizedContent,
+          inlineLeadCaptureState,
         );
 
         setMessages((currentMessages) => [
@@ -532,6 +559,7 @@ export function useKioskExperience({
             response.grounding,
           ),
         );
+        applyLeadCaptureInstruction(response.leadCapture);
       } else {
         previewReplyScheduled = true;
         typingTimeoutRef.current = window.setTimeout(() => {
@@ -608,42 +636,46 @@ export function useKioskExperience({
     recordConversationActivity();
   }
 
-  async function submitLead() {
-    if (!customerName.trim() || !customerEmail.trim()) {
+  async function submitInlineLeadCapture() {
+    const normalizedEmail = inlineLeadCaptureEmail.trim();
+
+    if (!normalizedEmail) {
       return;
     }
 
-    setLeadError(null);
-    setIsSubmittingLead(true);
+    if (!productId || !chatSessionId) {
+      setInlineLeadCaptureError("Lead capture is unavailable right now.");
+      return;
+    }
+
+    setInlineLeadCaptureError(null);
+    setIsSubmittingInlineLead(true);
     recordConversationActivity();
 
     try {
-      if (productId) {
-        await createKioskLead({
-          customerEmail: customerEmail.trim(),
-          customerName: customerName.trim(),
-          chatSessionId: chatSessionId ?? undefined,
-          productId,
-        });
-      }
-
-      setState("feedback");
+      await createKioskLead({
+        chatSessionId,
+        customerEmail: normalizedEmail,
+        productId,
+      });
+      setInlineLeadCaptureEmail(normalizedEmail);
+      setInlineLeadCaptureState("submitted");
     } catch (error) {
-      setLeadError(
+      setInlineLeadCaptureError(
         error instanceof Error
           ? error.message
           : "Lead submission is unavailable right now.",
       );
     } finally {
-      setIsSubmittingLead(false);
+      setIsSubmittingInlineLead(false);
     }
   }
 
-  async function skipLeadCapture() {
+  function dismissInlineLeadCapture() {
     recordConversationActivity();
-    await voiceSession.disconnect();
-    setLeadError(null);
-    setState("feedback");
+    setInlineLeadCaptureError(null);
+    setInlineLeadCaptureInstruction(null);
+    setInlineLeadCaptureState("dismissed");
   }
 
   async function skipFeedback() {
@@ -693,22 +725,24 @@ export function useKioskExperience({
     cancelVoiceInput,
     chatError,
     closeGrounding: () => setActiveGroundingMessageId(null),
-    customerEmail,
-    customerName,
+    dismissInlineLeadCapture,
     draft,
     feedbackError,
     groundingByMessageId,
+    inlineLeadCaptureEmail,
+    inlineLeadCaptureError,
+    inlineLeadCaptureInstruction,
+    inlineLeadCaptureState,
     isAssistantSpeaking: voiceSession.voiceState === "assistant-speaking",
     isAwaitingReply:
       isAwaitingReply ||
       voiceSession.isAwaitingResponse ||
       voiceSession.voiceState === "connecting",
     isSubmittingFeedback,
-    isSubmittingLead,
+    isSubmittingInlineLead,
     isVoiceAvailable: voiceSession.isVoiceEnabled,
     isVoiceDefaultEnabled,
     isVoiceRecording: voiceSession.isRecording,
-    leadError,
     messages,
     openGroundingForMessage: (messageId: string) =>
       setActiveGroundingMessageId((currentMessageId) =>
@@ -716,16 +750,14 @@ export function useKioskExperience({
       ),
     resetExperience,
     sendMessage,
-    setCustomerEmail,
-    setCustomerName,
     setDraft: handleDraftChange,
+    setInlineLeadCaptureEmail,
     skipFeedback,
-    skipLeadCapture,
     startExperience,
     startVoiceInput: handleVoicePrimaryAction,
     state,
     submitFeedback,
-    submitLead,
+    submitInlineLeadCapture,
     voiceError: voiceSession.voiceError,
     voiceState: voiceSession.voiceState,
   };

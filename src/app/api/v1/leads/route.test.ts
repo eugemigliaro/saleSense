@@ -125,7 +125,7 @@ describe("/api/v1/leads", () => {
       chatSessionId: "22222222-2222-4222-8222-222222222222",
       createdAt: "2026-03-28T08:30:00.000Z",
       customerEmail: "prospect@example.com",
-      customerName: "Prospect Buyer",
+      customerName: "Store visitor",
       customerPhone: null,
       id: "44444444-4444-4444-8444-444444444444",
       inferredInterest: "battery life",
@@ -140,7 +140,6 @@ describe("/api/v1/leads", () => {
         body: JSON.stringify({
           chatSessionId: "22222222-2222-4222-8222-222222222222",
           customerEmail: "Prospect@Example.com",
-          customerName: " Prospect Buyer ",
           productId: "11111111-1111-4111-8111-111111111111",
         }),
         headers: {
@@ -155,7 +154,7 @@ describe("/api/v1/leads", () => {
       aiSummary: null,
       chatSessionId: "22222222-2222-4222-8222-222222222222",
       customerEmail: "prospect@example.com",
-      customerName: "Prospect Buyer",
+      customerName: "Store visitor",
       customerPhone: null,
       inferredInterest: null,
       nextBestProduct: null,

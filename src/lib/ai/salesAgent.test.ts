@@ -4,6 +4,7 @@ import {
   buildFallbackSalesAgentReply,
   buildSalesAgentPrompt,
   generateSalesAssistantReply,
+  resolveLeadCaptureInstruction,
   selectRelevantComparisonProducts,
   type SalesAgentDraft,
   type SalesAgentInput,
@@ -141,6 +142,7 @@ describe("generateSalesAssistantReply", () => {
       {
         activeProduct: ACTIVE_PRODUCT,
         history: HISTORY,
+        leadCaptureState: "idle",
         storeId: "store-1",
       },
       {
@@ -152,6 +154,7 @@ describe("generateSalesAssistantReply", () => {
     expect(reply.draft.confidence).toBe("low");
     expect(reply.draft.message).toContain("iPhone Demo");
     expect(reply.grounding).toBeNull();
+    expect(reply.notifyStoreStaff).toBe(false);
   });
 
   it("rejects out-of-store alternative recommendations from the provider", async () => {
@@ -171,6 +174,7 @@ describe("generateSalesAssistantReply", () => {
       {
         activeProduct: ACTIVE_PRODUCT,
         history: HISTORY,
+        leadCaptureState: "idle",
         storeId: "store-1",
       },
       {
@@ -183,5 +187,81 @@ describe("generateSalesAssistantReply", () => {
     expect(reply.draft.objective).toBe("reframe");
     expect(reply.draft.message).not.toContain("Pixel Ultra");
     expect(reply.draft.message).toContain("store");
+    expect(reply.notifyStoreStaff).toBe(false);
+  });
+
+  it("triggers inline lead capture for price or stock questions", () => {
+    const leadCapture = resolveLeadCaptureInstruction({
+      activeProduct: ACTIVE_PRODUCT,
+      alternativeProducts: ALTERNATIVE_PRODUCTS,
+      draft: {
+        confidence: "high",
+        language: "en",
+        message: "I can walk you through the current option and what to check next.",
+        objective: "pitch",
+        recommendedAlternativeProductName: null,
+        suggestedTryout: null,
+      },
+      history: [
+        ...HISTORY,
+        {
+          content: "What is the price and do you have it in stock?",
+          createdAt: "2026-03-28T08:22:00.000Z",
+          id: "m-3",
+          role: "user",
+        },
+      ],
+      leadCaptureState: "idle",
+    });
+
+    expect(leadCapture).toEqual({
+      benefit: "seller-follow-up",
+      language: "en",
+      prompt:
+        "If you want, leave your email and a seller can approach you with this option to help with the next buying step.",
+      shouldPrompt: true,
+    });
+  });
+
+  it("forces a store handoff when the customer tries to move into payment or purchase", async () => {
+    const provider = vi
+      .fn<(input: SalesAgentInput) => Promise<SalesAgentDraft>>()
+      .mockResolvedValue({
+        confidence: "medium",
+        language: "en",
+        message: "I can help you buy it right now.",
+        objective: "pitch",
+        recommendedAlternativeProductName: null,
+        suggestedTryout: null,
+      });
+
+    const reply = await generateSalesAssistantReply(
+      {
+        activeProduct: ACTIVE_PRODUCT,
+        history: [
+          ...HISTORY,
+          {
+            content: "Perfect. Where do I pay for this one?",
+            createdAt: "2026-03-28T08:22:00.000Z",
+            id: "m-3",
+            role: "user",
+          },
+        ],
+        leadCaptureState: "idle",
+        storeId: "store-1",
+      },
+      {
+        comparisonProducts: [],
+        provider,
+      },
+    );
+
+    expect(reply.notifyStoreStaff).toBe(true);
+    expect(reply.draft.objective).toBe("handoff");
+    expect(reply.draft.message).toContain("I can’t handle payment");
+    expect(reply.draft.message).toContain(
+      "If you want, you can leave your email in the prompt on screen",
+    );
+    expect(reply.leadCapture?.benefit).toBe("seller-follow-up");
   });
 });

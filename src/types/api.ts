@@ -48,6 +48,19 @@ export interface ChatMessageGrounding {
   tools: GroundingToolName[];
 }
 
+export type LeadCaptureState = "idle" | "prompted" | "submitted" | "dismissed";
+export type LeadCaptureBenefit =
+  | "seller-follow-up"
+  | "conversation-summary"
+  | "product-details";
+
+export interface LeadCaptureInstruction {
+  benefit: LeadCaptureBenefit;
+  language: "en" | "es";
+  prompt: string;
+  shouldPrompt: boolean;
+}
+
 export interface ProductImportDraft {
   brand: string;
   category: string;
@@ -126,6 +139,7 @@ export interface ChatSessionLiveToolCallPayload {
   };
   functionResponse: GeminiLiveFunctionResponse;
   grounding: ChatMessageGrounding | null;
+  leadCapture: LeadCaptureInstruction | null;
   session: {
     deviceSessionId: string;
     id: string;

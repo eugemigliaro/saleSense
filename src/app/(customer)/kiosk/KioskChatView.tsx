@@ -17,7 +17,12 @@ import { useEffect, useRef } from "react";
 import type { ChatMessageGrounding } from "@/types/api";
 import type { ChatMessage } from "@/types/domain";
 
-import type { VoiceSessionState } from "./kioskTypes";
+import { KioskInlineLeadPrompt } from "./KioskInlineLeadPrompt";
+import type {
+  KioskLeadCaptureState,
+  VoiceSessionState,
+} from "./kioskTypes";
+import type { LeadCaptureInstruction } from "@/types/api";
 
 interface KioskChatViewProps {
   activeGrounding: ChatMessageGrounding | null;
@@ -25,14 +30,22 @@ interface KioskChatViewProps {
   draft: string;
   groundingByMessageId: Record<string, ChatMessageGrounding>;
   idleMediaUrl: string | null;
+  inlineLeadCaptureEmail: string;
+  inlineLeadCaptureError: string | null;
+  inlineLeadCaptureInstruction: LeadCaptureInstruction | null;
+  inlineLeadCaptureState: KioskLeadCaptureState;
   isAssistantSpeaking: boolean;
   isAwaitingReply: boolean;
+  isSubmittingInlineLead: boolean;
   isVoiceAvailable: boolean;
   isVoiceRecording: boolean;
   messages: ChatMessage[];
+  onDismissInlineLeadCapture: () => void | Promise<void>;
   onCancelVoiceInput: () => void;
   onCloseGrounding: () => void;
   onDraftChange: (value: string) => void;
+  onInlineLeadCaptureEmailChange: (value: string) => void;
+  onSubmitInlineLeadCapture: () => void | Promise<void>;
   onOpenGroundingForMessage: (messageId: string) => void;
   onSendMessage: (content: string) => void | Promise<void>;
   onVoicePrimaryAction: () => void | Promise<void>;
@@ -131,14 +144,22 @@ export function KioskChatView({
   draft,
   groundingByMessageId,
   idleMediaUrl,
+  inlineLeadCaptureEmail,
+  inlineLeadCaptureError,
+  inlineLeadCaptureInstruction,
+  inlineLeadCaptureState,
   isAssistantSpeaking,
   isAwaitingReply,
+  isSubmittingInlineLead,
   isVoiceAvailable,
   isVoiceRecording,
   messages,
+  onDismissInlineLeadCapture,
   onCancelVoiceInput,
   onCloseGrounding,
   onDraftChange,
+  onInlineLeadCaptureEmailChange,
+  onSubmitInlineLeadCapture,
   onOpenGroundingForMessage,
   onSendMessage,
   onVoicePrimaryAction,
@@ -157,7 +178,13 @@ export function KioskChatView({
       behavior: "smooth",
       top: scrollRef.current.scrollHeight,
     });
-  }, [isAssistantSpeaking, isAwaitingReply, isVoiceRecording, messages]);
+  }, [
+    inlineLeadCaptureState,
+    isAssistantSpeaking,
+    isAwaitingReply,
+    isVoiceRecording,
+    messages,
+  ]);
 
   useEffect(() => {
     if (!textareaRef.current) {
@@ -286,6 +313,17 @@ export function KioskChatView({
                 </div>
               </motion.div>
             ) : null}
+
+            <KioskInlineLeadPrompt
+              email={inlineLeadCaptureEmail}
+              error={inlineLeadCaptureError}
+              instruction={inlineLeadCaptureInstruction}
+              isSubmitting={isSubmittingInlineLead}
+              onDismiss={onDismissInlineLeadCapture}
+              onEmailChange={onInlineLeadCaptureEmailChange}
+              onSubmit={onSubmitInlineLeadCapture}
+              status={inlineLeadCaptureState}
+            />
           </div>
 
           <div className="px-1 pb-2 pt-2 sm:px-4 lg:px-8">

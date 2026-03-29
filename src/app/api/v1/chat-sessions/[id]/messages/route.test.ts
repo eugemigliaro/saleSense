@@ -124,6 +124,14 @@ describe("/api/v1/chat-sessions/[id]/messages", () => {
         ],
         tools: ["google-search"],
       },
+      leadCapture: {
+        benefit: "seller-follow-up",
+        language: "en",
+        prompt:
+          "I’m trying to get your email so a seller can approach you with this option and handle the next buying step.",
+        shouldPrompt: true,
+      },
+      notifyStoreStaff: false,
       session: {
         deviceSessionId: "22222222-2222-4222-8222-222222222222",
         id: "33333333-3333-4333-8333-333333333333",
@@ -162,6 +170,7 @@ describe("/api/v1/chat-sessions/[id]/messages", () => {
     expect(mockResolveSalesTurn).toHaveBeenCalledWith(
       "33333333-3333-4333-8333-333333333333",
       "Tell me about the battery.",
+      "idle",
     );
     await expect(response.json()).resolves.toEqual({
       data: {
@@ -181,6 +190,13 @@ describe("/api/v1/chat-sessions/[id]/messages", () => {
             },
           ],
           tools: ["google-search"],
+        },
+        leadCapture: {
+          benefit: "seller-follow-up",
+          language: "en",
+          prompt:
+            "I’m trying to get your email so a seller can approach you with this option and handle the next buying step.",
+          shouldPrompt: true,
         },
         session: {
           deviceSessionId: "22222222-2222-4222-8222-222222222222",

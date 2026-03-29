@@ -8,7 +8,7 @@ import {
   touchChatSession,
 } from "@/lib/chat-sessions";
 import { touchDeviceSession } from "@/lib/device-sessions";
-import type { ChatMessageGrounding } from "@/types/api";
+import type { ChatMessageGrounding, LeadCaptureInstruction, LeadCaptureState } from "@/types/api";
 import type { ChatMessage, ChatSession } from "@/types/domain";
 
 export class ChatSessionNotFoundError extends Error {
@@ -28,6 +28,8 @@ export class ChatSessionInactiveError extends Error {
 export interface ResolveSalesTurnResult {
   assistantMessage: ChatMessage;
   grounding: ChatMessageGrounding | null;
+  leadCapture: LeadCaptureInstruction | null;
+  notifyStoreStaff: boolean;
   session: ChatSession;
   userMessage: ChatMessage;
 }
@@ -35,6 +37,7 @@ export interface ResolveSalesTurnResult {
 export async function resolveSalesTurn(
   chatSessionId: string,
   customerTranscript: string,
+  leadCaptureState: LeadCaptureState = "idle",
 ): Promise<ResolveSalesTurnResult> {
   const normalizedTranscript = customerTranscript.trim();
   const chatSessionContext = await getChatSessionContextById(chatSessionId);
@@ -56,6 +59,7 @@ export async function resolveSalesTurn(
   const assistantReply = await generateSalesAssistantReply({
     activeProduct: chatSessionContext.product,
     history,
+    leadCaptureState,
     storeId: chatSessionContext.session.storeId,
   });
   const assistantMessage = await appendChatMessage(
@@ -65,7 +69,10 @@ export async function resolveSalesTurn(
   );
   const [updatedSession] = await Promise.all([
     touchChatSession(chatSessionId),
-    touchDeviceSession(chatSessionContext.session.deviceSessionId, "engaged"),
+    touchDeviceSession(
+      chatSessionContext.session.deviceSessionId,
+      assistantReply.notifyStoreStaff ? "collecting-lead" : "engaged",
+    ),
   ]);
 
   if (!updatedSession) {
@@ -75,6 +82,8 @@ export async function resolveSalesTurn(
   return {
     assistantMessage,
     grounding: assistantReply.grounding,
+    leadCapture: assistantReply.leadCapture,
+    notifyStoreStaff: assistantReply.notifyStoreStaff,
     session: updatedSession,
     userMessage,
   };

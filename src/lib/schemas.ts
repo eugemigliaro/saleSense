@@ -17,6 +17,12 @@ const LEAD_SUMMARY_MAX_LENGTH = 4_000;
 const LEAD_SHORT_TEXT_MAX_LENGTH = 200;
 const CHAT_MESSAGE_MAX_LENGTH = 2_000;
 const CHAT_TOOL_CALL_ID_MAX_LENGTH = 200;
+const LEAD_CAPTURE_STATE_VALUES = [
+  "idle",
+  "prompted",
+  "submitted",
+  "dismissed",
+] as const;
 
 function requiredText(label: string, maxLength: number) {
   return z
@@ -182,7 +188,7 @@ export const createLeadSchema = z
       .uuid("Chat session id must be a valid UUID.")
       .optional(),
     customerEmail: emailAddress("Customer email", LEAD_EMAIL_MAX_LENGTH),
-    customerName: requiredText("Customer name", LEAD_NAME_MAX_LENGTH),
+    customerName: optionalText("Customer name", LEAD_NAME_MAX_LENGTH),
     customerPhone: optionalText("Customer phone", LEAD_PHONE_MAX_LENGTH),
     inferredInterest: optionalText(
       "Inferred interest",
@@ -221,6 +227,7 @@ export const completeChatSessionSchema = z
 const sendChatMessageBodySchema = z
   .object({
     content: requiredText("Message", CHAT_MESSAGE_MAX_LENGTH),
+    leadCaptureState: z.enum(LEAD_CAPTURE_STATE_VALUES).optional(),
   })
   .strict();
 
@@ -234,6 +241,7 @@ export const createLiveToolCallSchema = z
   .object({
     callId: requiredText("Call id", CHAT_TOOL_CALL_ID_MAX_LENGTH),
     customerTranscript: requiredText("Customer transcript", CHAT_MESSAGE_MAX_LENGTH),
+    leadCaptureState: z.enum(LEAD_CAPTURE_STATE_VALUES).optional(),
   })
   .strict();
 
@@ -268,6 +276,7 @@ export interface UpdateLeadSaleConfirmationInput {
 
 export interface SendChatMessageInput {
   content: string;
+  leadCaptureState: (typeof LEAD_CAPTURE_STATE_VALUES)[number];
 }
 
 export interface CompleteChatSessionInput {
@@ -277,6 +286,7 @@ export interface CompleteChatSessionInput {
 export interface CreateLiveToolCallInput {
   callId: string;
   customerTranscript: string;
+  leadCaptureState: (typeof LEAD_CAPTURE_STATE_VALUES)[number];
 }
 
 export function normalizeCreateLeadInput(
@@ -286,7 +296,7 @@ export function normalizeCreateLeadInput(
     aiSummary: value.aiSummary ?? null,
     chatSessionId: value.chatSessionId ?? null,
     customerEmail: value.customerEmail,
-    customerName: value.customerName,
+    customerName: value.customerName ?? "Store visitor",
     customerPhone: value.customerPhone ?? null,
     inferredInterest: value.inferredInterest ?? null,
     nextBestProduct: value.nextBestProduct ?? null,
@@ -307,6 +317,7 @@ export function normalizeSendChatMessageInput(
 ): SendChatMessageInput {
   return {
     content: value.content,
+    leadCaptureState: value.leadCaptureState ?? "idle",
   };
 }
 
@@ -324,5 +335,6 @@ export function normalizeCreateLiveToolCallInput(
   return {
     callId: value.callId,
     customerTranscript: value.customerTranscript,
+    leadCaptureState: value.leadCaptureState ?? "idle",
   };
 }

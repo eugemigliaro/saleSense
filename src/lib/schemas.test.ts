@@ -35,6 +35,19 @@ describe("normalizeCreateLeadInput", () => {
       productId: TEST_PRODUCT_ID,
     });
   });
+
+  it("fills a default customer name when only email is provided", () => {
+    const parsed = createLeadSchema.parse({
+      customerEmail: " prospect@example.com ",
+      productId: TEST_PRODUCT_ID,
+    });
+
+    expect(normalizeCreateLeadInput(parsed)).toMatchObject({
+      customerEmail: "prospect@example.com",
+      customerName: "Store visitor",
+      productId: TEST_PRODUCT_ID,
+    });
+  });
 });
 
 describe("updateProductSchema", () => {
@@ -69,6 +82,7 @@ describe("normalizeSendChatMessageInput", () => {
 
     expect(normalizeSendChatMessageInput(parsed)).toEqual({
       content: "Tell me more about the camera.",
+      leadCaptureState: "idle",
     });
   });
 });

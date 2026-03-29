@@ -157,6 +157,14 @@ describe("/api/v1/chat-sessions/[id]/live-tool-calls", () => {
         ],
         tools: ["google-search"],
       },
+      leadCapture: {
+        benefit: "conversation-summary",
+        language: "en",
+        prompt:
+          "I’m trying to get your email so I can send a short summary of this comparison to your inbox.",
+        shouldPrompt: true,
+      },
+      notifyStoreStaff: false,
       session: {
         deviceSessionId: "22222222-2222-4222-8222-222222222222",
         id: "33333333-3333-4333-8333-333333333333",
@@ -196,6 +204,7 @@ describe("/api/v1/chat-sessions/[id]/live-tool-calls", () => {
     expect(mockResolveSalesTurn).toHaveBeenCalledWith(
       "33333333-3333-4333-8333-333333333333",
       "I mainly care about battery life.",
+      "idle",
     );
     await expect(response.json()).resolves.toEqual({
       data: {
@@ -223,6 +232,13 @@ describe("/api/v1/chat-sessions/[id]/live-tool-calls", () => {
             },
           ],
           tools: ["google-search"],
+        },
+        leadCapture: {
+          benefit: "conversation-summary",
+          language: "en",
+          prompt:
+            "I’m trying to get your email so I can send a short summary of this comparison to your inbox.",
+          shouldPrompt: true,
         },
         session: {
           deviceSessionId: "22222222-2222-4222-8222-222222222222",

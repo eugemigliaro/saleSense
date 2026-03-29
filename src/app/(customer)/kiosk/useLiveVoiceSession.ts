@@ -14,7 +14,11 @@ import { useEffect, useRef, useState } from "react";
 
 import type { GeminiLiveConfigPayload } from "@/types/api";
 
-import type { KioskLiveToolCallResult, VoiceSessionState } from "./kioskTypes";
+import type {
+  KioskLeadCaptureState,
+  KioskLiveToolCallResult,
+  VoiceSessionState,
+} from "./kioskTypes";
 import {
   createPlaybackAudioBuffer,
   createRealtimeAudioChunk,
@@ -24,6 +28,7 @@ import { createKioskLiveToken, sendKioskLiveToolCall } from "./kioskApi";
 
 interface UseLiveVoiceSessionInput {
   chatSessionId: string | null;
+  leadCaptureState: KioskLeadCaptureState;
   onResolvedTurn: (
     result: KioskLiveToolCallResult,
     pendingUserMessageId: string | null,
@@ -131,6 +136,7 @@ async function speakOpenerWithBrowserVoice(text: string) {
 
 export function useLiveVoiceSession({
   chatSessionId,
+  leadCaptureState,
   onResolvedTurn,
   onVoiceError,
 }: UseLiveVoiceSessionInput) {
@@ -298,6 +304,7 @@ export function useLiveVoiceSession({
         const result = await sendKioskLiveToolCall(activeChatSessionId, {
           callId: functionCall.id ?? crypto.randomUUID(),
           customerTranscript,
+          leadCaptureState,
         });
 
         const pendingUserMessageId =

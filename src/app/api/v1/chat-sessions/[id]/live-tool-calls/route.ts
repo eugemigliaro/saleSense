@@ -64,6 +64,7 @@ export async function POST(
     const result = await resolveSalesTurn(
       paramsResult.data.id,
       input.customerTranscript,
+      input.leadCaptureState,
     );
 
     return jsonSuccess({
@@ -73,6 +74,7 @@ export async function POST(
         callId: input.callId,
       }),
       grounding: result.grounding,
+      leadCapture: result.leadCapture,
       session: result.session,
       userMessage: result.userMessage,
     });

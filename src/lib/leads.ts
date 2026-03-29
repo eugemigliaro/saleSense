@@ -143,6 +143,25 @@ export async function createLeadForProduct(input: CreateLeadInput) {
     return null;
   }
 
+  if (input.chatSessionId) {
+    const { data: existingLead, error: existingLeadError } = await supabase
+      .from("leads")
+      .select(LEAD_COLUMNS)
+      .eq("chat_session_id", input.chatSessionId)
+      .eq("store_id", asProductScopeRow(product).store_id)
+      .maybeSingle();
+
+    if (existingLeadError) {
+      throw new Error(
+        `Failed to check existing lead for chat session: ${existingLeadError.message}`,
+      );
+    }
+
+    if (existingLead) {
+      return mapLeadRow(asLeadRow(existingLead));
+    }
+  }
+
   const leadInsightValues = await resolveLeadInsightValues(
     input,
     asProductScopeRow(product).store_id,

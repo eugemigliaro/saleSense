@@ -1,11 +1,13 @@
 import type {
   ChatMessageGrounding,
+  LeadCaptureInstruction,
+  LeadCaptureState,
   ChatSessionLiveTokenPayload,
   ChatSessionLiveToolCallPayload,
 } from "@/types/api";
 import type { ChatMessage } from "@/types/domain";
 
-export type KioskState = "idle" | "chat" | "lead" | "feedback" | "thanks";
+export type KioskState = "idle" | "chat" | "feedback" | "thanks";
 export type VoiceSessionState =
   | "idle"
   | "connecting"
@@ -36,11 +38,12 @@ export interface ChatSessionCreatePayload {
 export interface ChatSessionMessagePayload {
   assistantMessage: ChatMessage;
   grounding: ChatMessageGrounding | null;
+  leadCapture: LeadCaptureInstruction | null;
 }
 
 export interface CreateLeadPayload {
   customerEmail: string;
-  customerName: string;
+  customerName?: string;
   chatSessionId?: string;
   productId: string;
 }
@@ -53,7 +56,9 @@ export interface LiveChatSessionResult {
 export interface LiveChatMessageResult {
   assistantMessage: ChatMessage;
   grounding: ChatMessageGrounding | null;
+  leadCapture: LeadCaptureInstruction | null;
 }
 
+export type KioskLeadCaptureState = LeadCaptureState;
 export type KioskLiveTokenResult = ChatSessionLiveTokenPayload;
 export type KioskLiveToolCallResult = ChatSessionLiveToolCallPayload;

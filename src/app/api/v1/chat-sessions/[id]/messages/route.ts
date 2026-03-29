@@ -57,11 +57,16 @@ export async function POST(request: Request, context: ChatMessageRouteContext) {
     }
 
     const input = normalizeSendChatMessageInput(validationResult.data);
-    const result = await resolveSalesTurn(paramsResult.data.id, input.content);
+    const result = await resolveSalesTurn(
+      paramsResult.data.id,
+      input.content,
+      input.leadCaptureState,
+    );
 
     return jsonSuccess({
       assistantMessage: result.assistantMessage,
       grounding: result.grounding,
+      leadCapture: result.leadCapture,
       session: result.session,
     });
   } catch (error) {

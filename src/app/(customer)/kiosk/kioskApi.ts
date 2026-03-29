@@ -4,6 +4,7 @@ import type {
   ChatSessionCreatePayload,
   ChatSessionMessagePayload,
   CreateLeadPayload,
+  KioskLeadCaptureState,
   KioskLiveTokenResult,
   KioskLiveToolCallResult,
   LiveChatMessageResult,
@@ -63,10 +64,12 @@ export async function sendDeviceSessionHeartbeat(deviceSessionId: string) {
 export async function sendKioskChatMessage(
   chatSessionId: string,
   content: string,
+  leadCaptureState: KioskLeadCaptureState,
 ) {
   const response = await fetch(`/api/v1/chat-sessions/${chatSessionId}/messages`, {
     body: JSON.stringify({
       content,
+      leadCaptureState,
     }),
     headers: {
       "content-type": "application/json",
@@ -85,6 +88,7 @@ export async function sendKioskChatMessage(
   return {
     assistantMessage: payload.data.assistantMessage,
     grounding: payload.data.grounding,
+    leadCapture: payload.data.leadCapture,
   } satisfies LiveChatMessageResult;
 }
 
@@ -135,6 +139,7 @@ export async function sendKioskLiveToolCall(
   input: {
     callId: string;
     customerTranscript: string;
+    leadCaptureState: KioskLeadCaptureState;
   },
 ) {
   const response = await fetch(

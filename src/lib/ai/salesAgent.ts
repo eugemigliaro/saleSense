@@ -16,7 +16,12 @@ import {
   listProductsByIdsForStore,
   type ComparisonProduct,
 } from "@/lib/products";
-import type { ChatMessageGrounding } from "@/types/api";
+import type {
+  ChatMessageGrounding,
+  LeadCaptureBenefit,
+  LeadCaptureInstruction,
+  LeadCaptureState,
+} from "@/types/api";
 import type { ChatMessage, Product } from "@/types/domain";
 
 const ACTIVE_PRODUCT_MARKDOWN_MAX_LENGTH = 8_000;
@@ -87,12 +92,15 @@ export interface SalesAgentInput {
 export interface GenerateSalesAssistantReplyInput {
   activeProduct: Product;
   history: ChatMessage[];
+  leadCaptureState: LeadCaptureState;
   storeId: string;
 }
 
 export interface SalesAssistantReplyResult {
   draft: SalesAgentDraft;
   grounding: ChatMessageGrounding | null;
+  leadCapture: LeadCaptureInstruction | null;
+  notifyStoreStaff: boolean;
 }
 
 interface GenerateSalesAssistantReplyOptions {
@@ -234,6 +242,189 @@ function resolveAllowedAlternativeName(
   return null;
 }
 
+const PRICE_OR_STOCK_PATTERN =
+  /\b(price|cost|how much|stock|available|availability|in stock|precio|cu[aá]nto|disponible|stock)\b/i;
+const PURCHASE_HANDOFF_PATTERN =
+  /\b(payment|pay|checkout|check out|purchase|buy now|ready to buy|take it|reserve|order it|place the order|finance|financing|installments|where do i pay|close the sale|cerrar la compra|pagar|pago|comprar ahora|listo para comprar|reservar|financi)\b/i;
+const COMPARISON_PATTERN =
+  /\b(compare|comparison|vs|versus|difference|similar|which one|compar|diferencia|parecid)\b/i;
+const BUYING_READY_PATTERN =
+  /\b(i('| a)?ll take|i want this|ready to buy|want to buy|buy it|purchase|where do i pay|i'm sold|lo quiero|me lo llevo|quiero comprar|comprarlo|me sirve)\b/i;
+const POSITIVE_RECOMMENDATION_PATTERN =
+  /\b(sounds good|that works|perfect|great|awesome|love that|let'?s do it|exactly what i need|suena bien|perfecto|buen[ií]simo|me encanta|dale)\b/i;
+
+function buildLeadCapturePrompt(input: {
+  activeProduct: Product;
+  benefit: LeadCaptureBenefit;
+  language: "en" | "es";
+}) {
+  const productLabel = `${input.activeProduct.brand} ${input.activeProduct.name}`;
+
+  if (input.language === "es") {
+    switch (input.benefit) {
+      case "conversation-summary":
+        return `Si queres, dejame tu email y te mando un resumen corto de esta comparacion para revisarlo con calma.`;
+      case "product-details":
+        return `Si queres, dejame tu email y te mando la info de ${productLabel} para que la tengas a mano.`;
+      default:
+        return `Si queres, dejame tu email y hago que un vendedor se acerque con esta opcion para ayudarte con los proximos pasos.`;
+    }
+  }
+
+  switch (input.benefit) {
+    case "conversation-summary":
+      return "If you want, leave your email and I’ll send a short summary of this comparison to your inbox.";
+    case "product-details":
+      return `If you want, leave your email and I’ll send the details for ${productLabel} to your inbox.`;
+    default:
+      return "If you want, leave your email and a seller can approach you with this option to help with the next buying step.";
+  }
+}
+
+function buildLeadCaptureAnnouncement(input: {
+  benefit: LeadCaptureBenefit;
+  language: "en" | "es";
+}) {
+  if (input.language === "es") {
+    switch (input.benefit) {
+      case "conversation-summary":
+        return "Si queres, podes dejar tu email en el recuadro que aparece en pantalla y te mando este resumen.";
+      case "product-details":
+        return "Si queres, podes dejar tu email en el recuadro que aparece en pantalla y te mando la info del producto.";
+      default:
+        return "Si queres, podes dejar tu email en el recuadro que aparece en pantalla y hago que un vendedor siga con vos desde aca.";
+    }
+  }
+
+  switch (input.benefit) {
+    case "conversation-summary":
+      return "If you want, you can leave your email in the prompt on screen and I’ll send this summary to your inbox.";
+    case "product-details":
+      return "If you want, you can leave your email in the prompt on screen and I’ll send the product details to your inbox.";
+    default:
+      return "If you want, you can leave your email in the prompt on screen and a seller can take it from here.";
+  }
+}
+
+function buildStoreHandoffMessage(input: {
+  activeProduct: Product;
+  language: "en" | "es";
+}) {
+  const productLabel = `${input.activeProduct.brand} ${input.activeProduct.name}`;
+
+  if (input.language === "es") {
+    return `Yo no puedo gestionar pagos, confirmar precios ni cerrar la compra por mi cuenta. Voy a derivarte con un vendedor en tienda para que siga con ${productLabel} y te ayude desde aca.`;
+  }
+
+  return `I can’t handle payment, confirm pricing, or complete the purchase myself. I’m handing this over to an in-store employee so they can take it from here with the ${productLabel}.`;
+}
+
+function shouldNotifyStoreStaff(history: ChatMessage[]) {
+  const latestCustomerMessage = getLatestUserMessage(getRecentHistory(history));
+
+  return (
+    PURCHASE_HANDOFF_PATTERN.test(latestCustomerMessage) ||
+    PRICE_OR_STOCK_PATTERN.test(latestCustomerMessage)
+  );
+}
+
+function enforcePurchaseBoundary(input: {
+  activeProduct: Product;
+  draft: SalesAgentDraft;
+  history: ChatMessage[];
+}) {
+  if (!shouldNotifyStoreStaff(input.history)) {
+    return {
+      draft: input.draft,
+      notifyStoreStaff: false,
+    };
+  }
+
+  return {
+    draft: {
+      ...input.draft,
+      confidence: "high",
+      message: buildStoreHandoffMessage({
+        activeProduct: input.activeProduct,
+        language: input.draft.language,
+      }),
+      objective: "handoff",
+      recommendedAlternativeProductName: null,
+      suggestedTryout: null,
+    } satisfies SalesAgentDraft,
+    notifyStoreStaff: true,
+  };
+}
+
+export function resolveLeadCaptureInstruction(input: {
+  activeProduct: Product;
+  alternativeProducts: Product[];
+  draft: SalesAgentDraft;
+  history: ChatMessage[];
+  leadCaptureState: LeadCaptureState;
+}): LeadCaptureInstruction | null {
+  if (input.leadCaptureState !== "idle") {
+    return null;
+  }
+
+  const latestCustomerMessage = getLatestUserMessage(getRecentHistory(input.history));
+
+  if (!latestCustomerMessage) {
+    return null;
+  }
+
+  let benefit: LeadCaptureBenefit | null = null;
+
+  if (
+    PURCHASE_HANDOFF_PATTERN.test(latestCustomerMessage) ||
+    PRICE_OR_STOCK_PATTERN.test(latestCustomerMessage)
+  ) {
+    benefit = "seller-follow-up";
+  } else if (
+    input.draft.objective === "compare" &&
+    input.alternativeProducts.length > 0 &&
+    COMPARISON_PATTERN.test(latestCustomerMessage)
+  ) {
+    benefit = "conversation-summary";
+  } else if (BUYING_READY_PATTERN.test(latestCustomerMessage)) {
+    benefit = "product-details";
+  } else if (POSITIVE_RECOMMENDATION_PATTERN.test(latestCustomerMessage)) {
+    benefit = "seller-follow-up";
+  }
+
+  if (!benefit) {
+    return null;
+  }
+
+  return {
+    benefit,
+    language: input.draft.language,
+    prompt: buildLeadCapturePrompt({
+      activeProduct: input.activeProduct,
+      benefit,
+      language: input.draft.language,
+    }),
+    shouldPrompt: true,
+  };
+}
+
+function attachLeadCaptureAnnouncement(input: {
+  draft: SalesAgentDraft;
+  leadCapture: LeadCaptureInstruction | null;
+}) {
+  if (!input.leadCapture?.shouldPrompt) {
+    return input.draft;
+  }
+
+  return {
+    ...input.draft,
+    message: `${input.draft.message} ${buildLeadCaptureAnnouncement({
+      benefit: input.leadCapture.benefit,
+      language: input.leadCapture.language,
+    })}`.trim(),
+  } satisfies SalesAgentDraft;
+}
+
 const SALES_AGENT_SYSTEM_INSTRUCTION = [
   "You are SaleSense, an expert in-store retail salesperson for any product category.",
   "Act like a strong consultative salesperson, not a support bot and not a technical manual.",
@@ -249,6 +440,8 @@ const SALES_AGENT_SYSTEM_INSTRUCTION = [
   "Prefer selling the active product unless the customer's stated needs clearly mismatch it.",
   "Use any external research summary only as supplemental evidence, never as a replacement for store-managed product data.",
   "Do not speak as if competitor or web-researched products are available for purchase here unless they are explicitly listed in the same-store catalog.",
+  "You cannot handle payment, confirm live pricing, confirm stock, or complete the purchase yourself.",
+  "If the customer wants to advance toward payment, pricing confirmation, stock confirmation, or closing the purchase, explicitly hand off to an in-store employee.",
   "Do not invent features, pricing, stock, policies, or claims not supported by the provided context.",
   "Keep the response concise, practical, and persuasive without sounding pushy or scripted.",
   "Return only valid JSON that matches the required schema.",
@@ -440,19 +633,58 @@ export async function generateSalesAssistantReply(
   const provider = options.provider ?? generateSalesAgentDraftWithGemini;
 
   try {
+    const boundedDraft = enforceStoreCatalogBoundary(
+      salesAgentInput,
+      await provider(salesAgentInput),
+    );
+    const purchaseBoundary = enforcePurchaseBoundary({
+      activeProduct: input.activeProduct,
+      draft: boundedDraft,
+      history: trimmedHistory,
+    });
+    const leadCapture = resolveLeadCaptureInstruction({
+      activeProduct: input.activeProduct,
+      alternativeProducts,
+      draft: purchaseBoundary.draft,
+      history: trimmedHistory,
+      leadCaptureState: input.leadCaptureState,
+    });
+    const draft = attachLeadCaptureAnnouncement({
+      draft: purchaseBoundary.draft,
+      leadCapture,
+    });
+
     return {
-      draft: enforceStoreCatalogBoundary(
-        salesAgentInput,
-        await provider(salesAgentInput),
-      ),
+      draft,
       grounding: externalResearch?.grounding ?? null,
+      leadCapture,
+      notifyStoreStaff: purchaseBoundary.notifyStoreStaff,
     };
   } catch (error) {
     console.error("Failed to generate Gemini sales reply. Falling back.", error);
 
-    return {
+    const purchaseBoundary = enforcePurchaseBoundary({
+      activeProduct: input.activeProduct,
       draft: buildFallbackSalesAgentReply(salesAgentInput),
+      history: trimmedHistory,
+    });
+    const leadCapture = resolveLeadCaptureInstruction({
+      activeProduct: input.activeProduct,
+      alternativeProducts,
+      draft: purchaseBoundary.draft,
+      history: trimmedHistory,
+      leadCaptureState: input.leadCaptureState,
+    });
+    const draft = attachLeadCaptureAnnouncement({
+      draft: purchaseBoundary.draft,
+      leadCapture,
+    });
+
+    return {
+      draft,
       grounding: externalResearch?.grounding ?? null,
+      leadCapture,
+      notifyStoreStaff: purchaseBoundary.notifyStoreStaff,
     };
   }
 }
