@@ -44,6 +44,7 @@ interface KioskChatViewProps {
   onCancelVoiceInput: () => void;
   onCloseGrounding: () => void;
   onDraftChange: (value: string) => void;
+  onEndConversation: () => void | Promise<void>;
   onInlineLeadCaptureEmailChange: (value: string) => void;
   onSubmitInlineLeadCapture: () => void | Promise<void>;
   onOpenGroundingForMessage: (messageId: string) => void;
@@ -158,6 +159,7 @@ export function KioskChatView({
   onCancelVoiceInput,
   onCloseGrounding,
   onDraftChange,
+  onEndConversation,
   onInlineLeadCaptureEmailChange,
   onSubmitInlineLeadCapture,
   onOpenGroundingForMessage,
@@ -172,6 +174,8 @@ export function KioskChatView({
   const VoiceStatusIcon = voiceStatus.icon;
   const isSendMode = draft.trim().length > 0;
   const isComposerLocked = isAwaitingReply || isAssistantSpeaking;
+  const isEndingConversationDisabled =
+    isAwaitingReply || isAssistantSpeaking || isSubmittingInlineLead || isVoiceRecording;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -217,9 +221,21 @@ export function KioskChatView({
 
       <div className="relative z-10 flex min-h-screen justify-center px-4 py-6 sm:px-6 lg:px-10">
         <div className="flex h-full min-h-screen w-full max-w-5xl flex-col">
+          <div className="flex justify-end px-1 pt-3 sm:px-4 lg:px-8">
+            <button
+              type="button"
+              onClick={() => void onEndConversation()}
+              disabled={isEndingConversationDisabled}
+              className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-slate-950/42 px-4 py-2 ui-text-small font-medium text-white/80 shadow-[0_20px_45px_-30px_rgba(2,6,23,0.92)] backdrop-blur-md transition-colors hover:border-white/20 hover:bg-slate-950/58 hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              <X className="h-4 w-4" />
+              End conversation
+            </button>
+          </div>
+
           <div
             ref={scrollRef}
-            className="flex-1 space-y-5 overflow-y-auto px-1 pb-6 pt-8 sm:px-4 lg:px-8"
+            className="flex-1 space-y-5 overflow-y-auto px-1 pb-6 pt-5 sm:px-4 lg:px-8"
           >
             <AnimatePresence mode="popLayout">
               {messages.map((message) => (

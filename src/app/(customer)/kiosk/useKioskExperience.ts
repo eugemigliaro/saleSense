@@ -204,11 +204,6 @@ export function useKioskExperience({
     resetExperience();
   });
 
-  const handleAutoFeedbackTransition = useEffectEvent(async () => {
-    await voiceSession.disconnect();
-    setState("feedback");
-  });
-
   function recordConversationActivity() {
     setActivityTick((currentTick) => currentTick + 1);
   }
@@ -344,8 +339,6 @@ export function useKioskExperience({
     voiceSession.voiceState,
   ]);
 
-  const hasUserMessages = messages.some((message) => message.role === "user");
-
   useEffect(() => {
     if (state !== "chat" && state !== "feedback") {
       return;
@@ -368,12 +361,7 @@ export function useKioskExperience({
         : LEAD_CAPTURE_INACTIVITY_TIMEOUT_MS;
     const inactivityTimeout = window.setTimeout(() => {
       if (state === "chat") {
-        if (!hasUserMessages) {
-          handleAutoReset();
-          return;
-        }
-
-        void handleAutoFeedbackTransition();
+        handleAutoReset();
         return;
       }
 
@@ -389,7 +377,6 @@ export function useKioskExperience({
     chatError,
     draft,
     feedbackError,
-    hasUserMessages,
     isAwaitingReply,
     inlineLeadCaptureEmail,
     inlineLeadCaptureError,
@@ -687,6 +674,24 @@ export function useKioskExperience({
     updateInlineLeadCaptureState("dismissed");
   }
 
+  async function endConversation() {
+    recordConversationActivity();
+    setChatError(null);
+    setFeedbackError(null);
+    setActiveGroundingMessageId(null);
+    setDraft("");
+    setIsAwaitingReply(false);
+
+    if (typingTimeoutRef.current !== null) {
+      window.clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+
+    voiceSession.cancelRecording();
+    await voiceSession.disconnect();
+    setState("feedback");
+  }
+
   async function skipFeedback() {
     recordConversationActivity();
     setFeedbackError(null);
@@ -736,6 +741,7 @@ export function useKioskExperience({
     closeGrounding: () => setActiveGroundingMessageId(null),
     dismissInlineLeadCapture,
     draft,
+    endConversation,
     feedbackError,
     groundingByMessageId,
     inlineLeadCaptureEmail,

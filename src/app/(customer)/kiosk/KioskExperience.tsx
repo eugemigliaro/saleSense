@@ -59,6 +59,7 @@ export default function KioskExperience({
           onCancelVoiceInput={experience.cancelVoiceInput}
           onCloseGrounding={experience.closeGrounding}
           onDraftChange={experience.setDraft}
+          onEndConversation={experience.endConversation}
           onInlineLeadCaptureEmailChange={experience.setInlineLeadCaptureEmail}
           onSubmitInlineLeadCapture={experience.submitInlineLeadCapture}
           onOpenGroundingForMessage={experience.openGroundingForMessage}
