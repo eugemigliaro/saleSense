@@ -98,3 +98,20 @@ export async function fetchLeadsRequest() {
     }),
   );
 }
+
+export async function updateLeadSaleConfirmationRequest(
+  leadId: string,
+  isSaleConfirmed: boolean,
+) {
+  return readApiData<Lead>(
+    await fetch(`/api/v1/leads/${leadId}`, {
+      body: JSON.stringify({
+        isSaleConfirmed,
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "PATCH",
+    }),
+  );
+}

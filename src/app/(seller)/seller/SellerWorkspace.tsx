@@ -4,21 +4,29 @@ import { AnimatePresence } from "framer-motion";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 
 import { SlideTabs } from "@/components/ui/slide-tabs";
-import type { Lead, MonitoredDeviceSession, Product } from "@/types/domain";
+import type {
+  ConversationAnalytics,
+  Lead,
+  MonitoredDeviceSession,
+  Product,
+} from "@/types/domain";
 
 import { LaunchDeviceDialog } from "./LaunchDeviceDialog";
 import { ProductSessionsDialog } from "./ProductSessionsDialog";
 import { SellerDashboardView } from "./SellerDashboardView";
 import { SellerLeadsView } from "./SellerLeadsView";
 import { SellerProductsView } from "./SellerProductsView";
+import { buildMockConversationAnalytics } from "./sellerAnalytics";
 import {
   dismissDeviceSessionRequest,
   fetchDeviceSessionsRequest,
   fetchLeadsRequest,
   launchProductRequest,
+  updateLeadSaleConfirmationRequest,
 } from "./workspaceApi";
 
 interface SellerWorkspaceProps {
+  initialAnalytics: ConversationAnalytics[];
   initialDeviceSessions: MonitoredDeviceSession[];
   initialLeads: Lead[];
   initialProducts: Product[];
@@ -51,13 +59,20 @@ function getSessionCountByProduct(deviceSessions: MonitoredDeviceSession[]) {
 }
 
 export default function SellerWorkspace({
+  initialAnalytics,
   initialDeviceSessions,
   initialLeads,
   initialProducts,
 }: SellerWorkspaceProps) {
+  const usesPersistedAnalytics = initialAnalytics.length > 0;
   const [activeTab, setActiveTab] = useState<SellerWorkspaceTab>("products");
   const [deviceSessions, setDeviceSessions] = useState(initialDeviceSessions);
   const [leads, setLeads] = useState(initialLeads);
+  const [analytics, setAnalytics] = useState<ConversationAnalytics[]>(
+    usesPersistedAnalytics
+      ? initialAnalytics
+      : buildMockConversationAnalytics(initialLeads, initialProducts),
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [launchingProduct, setLaunchingProduct] = useState<Product | null>(null);
   const [launchLabel, setLaunchLabel] = useState("");
@@ -66,12 +81,31 @@ export default function SellerWorkspace({
   const [isDismissingSessionId, setIsDismissingSessionId] = useState<string | null>(
     null,
   );
+  const [updatingLeadId, setUpdatingLeadId] = useState<string | null>(null);
 
   const tabs: Array<{ key: SellerWorkspaceTab; label: string }> = [
     { key: "products", label: "Products" },
     { key: "dashboard", label: "Dashboard" },
     { key: "leads", label: "Leads" },
   ];
+
+  function syncAnalyticsWithLeads(
+    nextAnalytics: ConversationAnalytics[],
+    nextLeads: Lead[],
+  ) {
+    const saleConfirmationByChatSessionId = new Map(
+      nextLeads
+        .filter((lead) => Boolean(lead.chatSessionId))
+        .map((lead) => [lead.chatSessionId as string, lead.isSaleConfirmed]),
+    );
+
+    return nextAnalytics.map((entry) => ({
+      ...entry,
+      manualSaleConfirmed:
+        saleConfirmationByChatSessionId.get(entry.chatSessionId) ??
+        entry.manualSaleConfirmed,
+    }));
+  }
 
   const attentionCountByProduct = useMemo(
     () => getAttentionCountByProduct(deviceSessions),
@@ -113,6 +147,14 @@ export default function SellerWorkspace({
     try {
       const nextLeads = await fetchLeadsRequest();
       setLeads(nextLeads);
+
+      if (usesPersistedAnalytics) {
+        setAnalytics((currentAnalytics) =>
+          syncAnalyticsWithLeads(currentAnalytics, nextLeads),
+        );
+      } else {
+        setAnalytics(buildMockConversationAnalytics(nextLeads, initialProducts));
+      }
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to refresh leads.",
@@ -158,6 +200,58 @@ export default function SellerWorkspace({
       );
     } finally {
       setIsDismissingSessionId(null);
+    }
+  }
+
+  async function handleToggleLeadSaleConfirmation(targetLead: Lead) {
+    setErrorMessage(null);
+    setUpdatingLeadId(targetLead.id);
+
+    const previousLeads = leads;
+    const previousAnalytics = analytics;
+    const nextSaleConfirmedState = !targetLead.isSaleConfirmed;
+    const nextLeads = leads.map((lead) =>
+      lead.id === targetLead.id
+        ? { ...lead, isSaleConfirmed: nextSaleConfirmedState }
+        : lead,
+    );
+
+    setLeads(nextLeads);
+
+    if (usesPersistedAnalytics) {
+      setAnalytics(syncAnalyticsWithLeads(previousAnalytics, nextLeads));
+    } else {
+      setAnalytics(buildMockConversationAnalytics(nextLeads, initialProducts));
+    }
+
+    try {
+      const updatedLead = await updateLeadSaleConfirmationRequest(
+        targetLead.id,
+        nextSaleConfirmedState,
+      );
+      const syncedLeads = nextLeads.map((lead) =>
+        lead.id === updatedLead.id ? updatedLead : lead,
+      );
+
+      setLeads(syncedLeads);
+
+      if (usesPersistedAnalytics) {
+        setAnalytics((currentAnalytics) =>
+          syncAnalyticsWithLeads(currentAnalytics, syncedLeads),
+        );
+      } else {
+        setAnalytics(buildMockConversationAnalytics(syncedLeads, initialProducts));
+      }
+    } catch (error) {
+      setLeads(previousLeads);
+      setAnalytics(previousAnalytics);
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to update lead sale confirmation.",
+      );
+    } finally {
+      setUpdatingLeadId(null);
     }
   }
 
@@ -236,11 +330,21 @@ export default function SellerWorkspace({
           ) : null}
 
           {activeTab === "dashboard" ? (
-            <SellerDashboardView leads={leads} products={initialProducts} />
+            <SellerDashboardView
+              analytics={analytics}
+              capturedContactCount={leads.length}
+              confirmedSaleCount={leads.filter((lead) => lead.isSaleConfirmed).length}
+              products={initialProducts}
+            />
           ) : null}
 
           {activeTab === "leads" ? (
-            <SellerLeadsView leads={leads} products={initialProducts} />
+            <SellerLeadsView
+              leads={leads}
+              onToggleSaleConfirmation={handleToggleLeadSaleConfirmation}
+              products={initialProducts}
+              updatingLeadId={updatingLeadId}
+            />
           ) : null}
         </div>
       </main>

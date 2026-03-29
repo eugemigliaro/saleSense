@@ -1,12 +1,16 @@
 import "server-only";
 
 import { generateLeadInsights } from "@/lib/ai/leadInsights";
+import { updateManualSaleConfirmationByChatSessionId } from "@/lib/conversationAnalytics";
 import {
   getChatSessionContextById,
   listChatMessagesBySessionId,
 } from "@/lib/chat-sessions";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import type { CreateLeadInput } from "@/lib/schemas";
+import type {
+  CreateLeadInput,
+  UpdateLeadSaleConfirmationInput,
+} from "@/lib/schemas";
 import type { Database } from "@/types/database";
 import type { Lead } from "@/types/domain";
 
@@ -21,11 +25,13 @@ const LEAD_COLUMNS = [
   "id",
   "store_id",
   "product_id",
+  "chat_session_id",
   "customer_name",
   "customer_email",
   "customer_phone",
   "ai_summary",
   "inferred_interest",
+  "is_sale_confirmed",
   "next_best_product",
   "created_at",
 ].join(", ");
@@ -51,12 +57,14 @@ interface LeadInsightValues {
 export function mapLeadRow(row: LeadRow): Lead {
   return {
     aiSummary: row.ai_summary,
+    chatSessionId: row.chat_session_id,
     createdAt: row.created_at,
     customerEmail: row.customer_email,
     customerName: row.customer_name,
     customerPhone: row.customer_phone,
     id: row.id,
     inferredInterest: row.inferred_interest,
+    isSaleConfirmed: row.is_sale_confirmed,
     nextBestProduct: row.next_best_product,
     productId: row.product_id,
     storeId: row.store_id,
@@ -142,6 +150,7 @@ export async function createLeadForProduct(input: CreateLeadInput) {
 
   const insertPayload: LeadInsert = {
     ai_summary: leadInsightValues.aiSummary,
+    chat_session_id: input.chatSessionId,
     customer_email: input.customerEmail,
     customer_name: input.customerName,
     customer_phone: input.customerPhone,
@@ -162,6 +171,43 @@ export async function createLeadForProduct(input: CreateLeadInput) {
   }
 
   return mapLeadRow(asLeadRow(data));
+}
+
+export async function updateLeadSaleConfirmationForStore(
+  leadId: string,
+  storeId: string,
+  input: UpdateLeadSaleConfirmationInput,
+) {
+  const supabase = createAdminSupabaseClient();
+  const { data, error } = await supabase
+    .from("leads")
+    .update({
+      is_sale_confirmed: input.isSaleConfirmed,
+    })
+    .eq("id", leadId)
+    .eq("store_id", storeId)
+    .select(LEAD_COLUMNS)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to update lead sale confirmation: ${error.message}`);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const lead = mapLeadRow(asLeadRow(data));
+
+  if (lead.chatSessionId) {
+    await updateManualSaleConfirmationByChatSessionId(
+      lead.chatSessionId,
+      storeId,
+      input.isSaleConfirmed,
+    );
+  }
+
+  return lead;
 }
 
 export async function listLeadsByStore(storeId: string) {

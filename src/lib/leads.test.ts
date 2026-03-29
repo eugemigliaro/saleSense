@@ -9,12 +9,14 @@ describe("mapLeadRow", () => {
   it("maps a database lead row into the domain shape", () => {
     const row: LeadRow = {
       ai_summary: null,
+      chat_session_id: "33333333-3333-4333-8333-333333333333",
       created_at: "2026-03-28T07:15:00.000Z",
       customer_email: "prospect@example.com",
       customer_name: "Prospect Buyer",
       customer_phone: null,
       id: "22222222-2222-4222-8222-222222222222",
       inferred_interest: "Tablet Pro",
+      is_sale_confirmed: true,
       next_best_product: null,
       product_id: "11111111-1111-4111-8111-111111111111",
       store_id: "store-1",
@@ -22,12 +24,14 @@ describe("mapLeadRow", () => {
 
     expect(mapLeadRow(row)).toEqual({
       aiSummary: null,
+      chatSessionId: "33333333-3333-4333-8333-333333333333",
       createdAt: "2026-03-28T07:15:00.000Z",
       customerEmail: "prospect@example.com",
       customerName: "Prospect Buyer",
       customerPhone: null,
       id: "22222222-2222-4222-8222-222222222222",
       inferredInterest: "Tablet Pro",
+      isSaleConfirmed: true,
       nextBestProduct: null,
       productId: "11111111-1111-4111-8111-111111111111",
       storeId: "store-1",

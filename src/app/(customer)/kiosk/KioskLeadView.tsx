@@ -98,7 +98,7 @@ export function KioskLeadView({
               type="tel"
               value={customerPhone}
               onChange={(event) => onCustomerPhoneChange(event.target.value)}
-              placeholder="Phone (optional)"
+              placeholder="Phone number (optional)"
               className={`${inputClass} pl-11`}
             />
           </div>
