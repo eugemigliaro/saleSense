@@ -108,3 +108,76 @@ export async function updateManualSaleConfirmationByChatSessionId(
     );
   }
 }
+
+function getFeedbackSentimentFromScore(
+  feedbackScore: number | null,
+): ConversationFeedbackSentiment | null {
+  if (feedbackScore == null) {
+    return null;
+  }
+
+  if (feedbackScore >= 4) {
+    return "positive";
+  }
+
+  if (feedbackScore === 3) {
+    return "neutral";
+  }
+
+  return "negative";
+}
+
+export async function upsertCompletedConversationAnalytics(input: {
+  chatSessionId: string;
+  feedbackScore: number | null;
+  productId: string;
+  startedAt: string;
+  storeId: string;
+}) {
+  const supabase = createAdminSupabaseClient();
+  const now = new Date().toISOString();
+  const durationSeconds = Math.max(
+    0,
+    Math.round(
+      (new Date(now).getTime() - new Date(input.startedAt).getTime()) / 1000,
+    ),
+  );
+  const { count, error: countError } = await supabase
+    .from("chat_messages")
+    .select("id", {
+      count: "exact",
+      head: true,
+    })
+    .eq("chat_session_id", input.chatSessionId);
+
+  if (countError) {
+    throw new Error(
+      `Failed to count chat messages for analytics: ${countError.message}`,
+    );
+  }
+
+  const { error } = await supabase
+    .from("conversation_analytics")
+    .upsert(
+      {
+        chat_session_id: input.chatSessionId,
+        conversation_duration_seconds: durationSeconds,
+        conversation_ended_at: now,
+        conversation_started_at: input.startedAt,
+        feedback_score: input.feedbackScore,
+        feedback_sentiment: getFeedbackSentimentFromScore(input.feedbackScore),
+        message_count: count ?? 0,
+        product_id: input.productId,
+        store_id: input.storeId,
+      },
+      {
+        onConflict: "chat_session_id",
+      },
+    );
+
+  if (error && !isMissingConversationAnalyticsTable(error)) {
+    throw new Error(
+      `Failed to upsert completed conversation analytics: ${error.message}`,
+    );
+  }
+}

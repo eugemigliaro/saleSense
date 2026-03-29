@@ -60,9 +60,10 @@ export function useKioskExperience({
   const [chatSessionId, setChatSessionId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
   const [leadError, setLeadError] = useState<string | null>(null);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const chatSessionRequestRef = useRef<Promise<LiveChatSessionResult | null> | null>(
     null,
   );
@@ -112,14 +113,24 @@ export function useKioskExperience({
     onVoiceError: handleVoiceError,
   });
 
-  function finalizeChatSession(endedChatSessionId: string | null) {
+  async function finalizeChatSession(
+    endedChatSessionId: string | null,
+    feedbackScore?: number,
+  ) {
     if (!endedChatSessionId) {
       return;
     }
 
-    void completeKioskChatSession(endedChatSessionId).catch((error) => {
+    try {
+      await completeKioskChatSession(endedChatSessionId, feedbackScore);
+    } catch (error) {
       console.error("Failed to complete kiosk chat session.", error);
-    });
+      throw error;
+    } finally {
+      setChatSessionId((currentChatSessionId) =>
+        currentChatSessionId === endedChatSessionId ? null : currentChatSessionId,
+      );
+    }
   }
 
   function resetExperience() {
@@ -133,9 +144,9 @@ export function useKioskExperience({
     void voiceSession.disconnect();
     setCustomerEmail("");
     setCustomerName("");
-    setCustomerPhone("");
     setChatError(null);
     setLeadError(null);
+    setFeedbackError(null);
     setChatSessionId(null);
     chatSessionRequestRef.current = null;
     setGroundingByMessageId({});
@@ -144,7 +155,7 @@ export function useKioskExperience({
     setIsTyping(false);
     setMessages([]);
     setState("idle");
-    finalizeChatSession(activeChatSessionId);
+    void finalizeChatSession(activeChatSessionId);
   }
 
   const handleAutoReset = useEffectEvent(() => {
@@ -261,6 +272,7 @@ export function useKioskExperience({
   async function startExperience() {
     setChatError(null);
     setLeadError(null);
+    setFeedbackError(null);
     setMessages([]);
     setGroundingByMessageId({});
     setActiveGroundingMessageId(null);
@@ -417,13 +429,12 @@ export function useKioskExperience({
         await createKioskLead({
           customerEmail: customerEmail.trim(),
           customerName: customerName.trim(),
-          customerPhone: customerPhone.trim() || undefined,
           chatSessionId: chatSessionId ?? undefined,
           productId,
         });
       }
 
-      setState("thanks");
+      setState("feedback");
     } catch (error) {
       setLeadError(
         error instanceof Error
@@ -445,10 +456,11 @@ export function useKioskExperience({
     closeGrounding: () => setActiveGroundingMessageId(null),
     customerEmail,
     customerName,
-    customerPhone,
     draft,
+    feedbackError,
     groundingByMessageId,
     isLiveSession: Boolean(deviceSessionId),
+    isSubmittingFeedback,
     isSubmittingLead,
     isTyping:
       isTyping ||
@@ -464,10 +476,48 @@ export function useKioskExperience({
     sendMessage,
     setCustomerEmail,
     setCustomerName,
-    setCustomerPhone,
     setDraft,
+    skipFeedback: async () => {
+      setFeedbackError(null);
+      setIsSubmittingFeedback(true);
+
+      try {
+        await finalizeChatSession(chatSessionId);
+        setState("thanks");
+      } catch (error) {
+        setFeedbackError(
+          error instanceof Error
+            ? error.message
+            : "Feedback submission is unavailable right now.",
+        );
+      } finally {
+        setIsSubmittingFeedback(false);
+      }
+    },
+    skipLeadCapture: async () => {
+      await voiceSession.disconnect();
+      setLeadError(null);
+      setState("feedback");
+    },
     startExperience,
     state,
+    submitFeedback: async (rating: number) => {
+      setFeedbackError(null);
+      setIsSubmittingFeedback(true);
+
+      try {
+        await finalizeChatSession(chatSessionId, rating);
+        setState("thanks");
+      } catch (error) {
+        setFeedbackError(
+          error instanceof Error
+            ? error.message
+            : "Feedback submission is unavailable right now.",
+        );
+      } finally {
+        setIsSubmittingFeedback(false);
+      }
+    },
     submitLead,
     transitionToLeadCapture: async () => {
       await voiceSession.disconnect();

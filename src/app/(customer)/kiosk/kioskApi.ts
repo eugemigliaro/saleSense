@@ -106,8 +106,17 @@ export async function createKioskLiveToken(chatSessionId: string) {
   return payload.data satisfies KioskLiveTokenResult;
 }
 
-export async function completeKioskChatSession(chatSessionId: string) {
+export async function completeKioskChatSession(
+  chatSessionId: string,
+  feedbackScore?: number,
+) {
   const response = await fetch(`/api/v1/chat-sessions/${chatSessionId}/complete`, {
+    body: JSON.stringify(
+      feedbackScore == null ? {} : { feedbackScore },
+    ),
+    headers: {
+      "content-type": "application/json",
+    },
     method: "POST",
   });
 

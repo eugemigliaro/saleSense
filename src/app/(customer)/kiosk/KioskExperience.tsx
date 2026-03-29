@@ -3,6 +3,7 @@
 import { AnimatePresence } from "framer-motion";
 
 import { KioskChatView } from "./KioskChatView";
+import { KioskFeedbackView } from "./KioskFeedbackView";
 import { KioskIdleView } from "./KioskIdleView";
 import { KioskLeadView } from "./KioskLeadView";
 import { KioskThanksView } from "./KioskThanksView";
@@ -61,14 +62,22 @@ export default function KioskExperience({
           key="lead"
           customerEmail={experience.customerEmail}
           customerName={experience.customerName}
-          customerPhone={experience.customerPhone}
           isSubmittingLead={experience.isSubmittingLead}
           leadError={experience.leadError}
           onCustomerEmailChange={experience.setCustomerEmail}
           onCustomerNameChange={experience.setCustomerName}
-          onCustomerPhoneChange={experience.setCustomerPhone}
-          onReset={experience.resetExperience}
+          onSkip={experience.skipLeadCapture}
           onSubmit={experience.submitLead}
+        />
+      ) : null}
+
+      {experience.state === "feedback" ? (
+        <KioskFeedbackView
+          key="feedback"
+          feedbackError={experience.feedbackError}
+          isSubmittingFeedback={experience.isSubmittingFeedback}
+          onSkip={experience.skipFeedback}
+          onSubmit={experience.submitFeedback}
         />
       ) : null}
 

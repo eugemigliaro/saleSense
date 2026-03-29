@@ -1,19 +1,27 @@
 import {
+  InvalidJsonBodyError,
+  jsonInvalidJsonError,
   jsonNotFoundError,
   jsonServerError,
   jsonUnauthorizedError,
   jsonValidationError,
+  readJsonBody,
 } from "@/lib/api-request";
 import { jsonSuccess } from "@/lib/api-response";
 import {
   completeChatSession,
   getChatSessionContextById,
 } from "@/lib/chat-sessions";
+import { upsertCompletedConversationAnalytics } from "@/lib/conversationAnalytics";
 import {
   KioskAccessError,
   requireKioskDeviceSessionAccess,
 } from "@/lib/kiosk-auth";
-import { chatSessionIdParamsSchema } from "@/lib/schemas";
+import {
+  chatSessionIdParamsSchema,
+  completeChatSessionSchema,
+  normalizeCompleteChatSessionInput,
+} from "@/lib/schemas";
 
 interface CompleteChatSessionRouteContext {
   params: Promise<{
@@ -22,7 +30,7 @@ interface CompleteChatSessionRouteContext {
 }
 
 export async function POST(
-  _request: Request,
+  request: Request,
   context: CompleteChatSessionRouteContext,
 ) {
   try {
@@ -40,7 +48,23 @@ export async function POST(
       return jsonNotFoundError("Chat session not found.");
     }
 
+    const body = await readJsonBody(request);
+    const validationResult = completeChatSessionSchema.safeParse(body);
+
+    if (!validationResult.success) {
+      return jsonValidationError(validationResult.error);
+    }
+
+    const input = normalizeCompleteChatSessionInput(validationResult.data);
+
     await requireKioskDeviceSessionAccess(chatSessionContext.session.deviceSessionId);
+    await upsertCompletedConversationAnalytics({
+      chatSessionId: chatSessionContext.session.id,
+      feedbackScore: input.feedbackScore,
+      productId: chatSessionContext.session.productId,
+      startedAt: chatSessionContext.session.startedAt,
+      storeId: chatSessionContext.session.storeId,
+    });
 
     const session = await completeChatSession(paramsResult.data.id);
 
@@ -52,6 +76,10 @@ export async function POST(
       session,
     });
   } catch (error) {
+    if (error instanceof InvalidJsonBodyError) {
+      return jsonInvalidJsonError();
+    }
+
     if (error instanceof KioskAccessError) {
       return jsonUnauthorizedError("Kiosk session is not authorized.");
     }

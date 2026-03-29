@@ -1,11 +1,10 @@
 import type {
   ConversationAnalytics,
-  ConversationFeedbackSentiment,
   Lead,
   Product,
 } from "@/types/domain";
 
-const HIGH_BUY_PROBABILITY_THRESHOLD = 0.8;
+const MOCK_AI_INFERRED_SALE_THRESHOLD = 0.8;
 
 interface DashboardBreakdownItem {
   count: number;
@@ -28,10 +27,6 @@ export interface SellerDashboardMetrics {
   contactChannelCaptureRate: number;
   contactChannelMissingCount: number;
   faqTopics: FaqTopicMetric[];
-  highIntentAiInferredSales: number;
-  highIntentConversationCount: number;
-  highIntentConversationRate: number;
-  highIntentStoreConfirmedSales: number;
   redirectedConversationCount: number;
   redirectedConversationRate: number;
   totalConversations: number;
@@ -165,17 +160,6 @@ function buildFaqPayload(lead: Lead, seed: number) {
   };
 }
 
-function formatFeedbackLabel(sentiment: ConversationFeedbackSentiment) {
-  switch (sentiment) {
-    case "positive":
-      return "Positive";
-    case "negative":
-      return "Negative";
-    default:
-      return "Neutral";
-  }
-}
-
 export function buildMockConversationAnalytics(
   leads: Lead[],
   products: Product[],
@@ -196,21 +180,19 @@ export function buildMockConversationAnalytics(
     const saleOutcome =
       buyProbability >= 0.9 && seed % 2 === 0
         ? "store_confirmed"
-        : buyProbability >= HIGH_BUY_PROBABILITY_THRESHOLD
+        : buyProbability >= MOCK_AI_INFERRED_SALE_THRESHOLD
           ? "ai_inferred"
           : "none";
-    const feedbackSentiment: ConversationFeedbackSentiment =
-      buyProbability >= 0.85
-        ? "positive"
-        : seed % 5 === 0
-          ? "negative"
-          : "neutral";
     const feedbackScore =
-      feedbackSentiment === "positive"
-        ? 5
-        : feedbackSentiment === "neutral"
-          ? 3
-          : 2;
+      seed % 6 === 0 ? null : Math.max(1, 5 - (seed % 5));
+    const feedbackSentiment =
+      feedbackScore == null
+        ? null
+        : feedbackScore >= 4
+          ? "positive"
+          : feedbackScore === 3
+            ? "neutral"
+            : "negative";
     const redirectedToOtherProduct =
       Boolean(lead.nextBestProduct?.trim()) || seed % 5 === 0;
     const redirectTargetProductId = redirectedToOtherProduct
@@ -289,32 +271,19 @@ export function buildSellerDashboardMetrics(
   const redirectTargetCounts = new Map<string, number>();
   let durationTotal = 0;
   let redirectedConversationCount = 0;
-  let highIntentConversationCount = 0;
-  let highIntentAiInferredSales = 0;
-  let highIntentStoreConfirmedSales = 0;
 
-  feedbackCounts.set("Positive", 0);
-  feedbackCounts.set("Neutral", 0);
-  feedbackCounts.set("Negative", 0);
+  for (const rating of [5, 4, 3, 2, 1]) {
+    feedbackCounts.set(`${rating} star${rating === 1 ? "" : "s"}`, 0);
+  }
 
   for (const entry of filteredAnalytics) {
     if (entry.durationSeconds != null) {
       durationTotal += entry.durationSeconds;
     }
 
-    if ((entry.buyProbability ?? 0) >= HIGH_BUY_PROBABILITY_THRESHOLD) {
-      highIntentConversationCount += 1;
-
-      if (entry.manualSaleConfirmed || entry.saleOutcome === "store_confirmed") {
-        highIntentStoreConfirmedSales += 1;
-      } else if (entry.saleOutcome === "ai_inferred") {
-        highIntentAiInferredSales += 1;
-      }
-    }
-
-    if (entry.feedbackSentiment) {
-      const feedbackLabel = formatFeedbackLabel(entry.feedbackSentiment);
-
+    if (entry.feedbackScore != null) {
+      const safeRating = Math.min(5, Math.max(1, Math.round(entry.feedbackScore)));
+      const feedbackLabel = `${safeRating} star${safeRating === 1 ? "" : "s"}`;
       feedbackCounts.set(
         feedbackLabel,
         (feedbackCounts.get(feedbackLabel) ?? 0) + 1,
@@ -358,12 +327,10 @@ export function buildSellerDashboardMetrics(
   return {
     averageConversationDurationSeconds:
       totalConversations > 0 ? Math.round(durationTotal / totalConversations) : 0,
-    clientFeedback: sortBreakdown(
-      Array.from(feedbackCounts.entries()).map(([label, count]) => ({
+    clientFeedback: Array.from(feedbackCounts.entries()).map(([label, count]) => ({
         count,
         label,
       })),
-    ),
     confirmedSalesCount,
     confirmedSalesRate:
       totalConversations > 0 ? confirmedSalesCount / totalConversations : 0,
@@ -386,11 +353,6 @@ export function buildSellerDashboardMetrics(
         return left.label.localeCompare(right.label);
       })
       .slice(0, 5),
-    highIntentAiInferredSales,
-    highIntentConversationCount,
-    highIntentConversationRate:
-      totalConversations > 0 ? highIntentConversationCount / totalConversations : 0,
-    highIntentStoreConfirmedSales,
     redirectedConversationCount,
     redirectedConversationRate:
       totalConversations > 0 ? redirectedConversationCount / totalConversations : 0,
