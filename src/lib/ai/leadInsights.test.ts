@@ -108,4 +108,29 @@ describe("generateLeadInsights", () => {
     expect(insights.aiSummary).toContain("iPhone Demo");
     expect(insights.inferredInterest).toContain("zoom");
   });
+
+  it("drops next-best products that are not in the same store comparison set", async () => {
+    const provider = vi
+      .fn<(input: unknown) => Promise<LeadInsights>>()
+      .mockResolvedValue({
+        aiSummary: "Customer mostly cared about zoom and speed.",
+        inferredInterest: "zoom and speed",
+        nextBestProduct: "Pixel Ultra",
+      });
+
+    const insights = await generateLeadInsights(
+      {
+        activeProduct: ACTIVE_PRODUCT,
+        history: HISTORY,
+        storeId: "store-1",
+      },
+      {
+        comparisonProducts: COMPARISON_PRODUCTS,
+        provider,
+      },
+    );
+
+    expect(insights.nextBestProduct).toBeNull();
+    expect(insights.aiSummary).toContain("iPhone Demo");
+  });
 });

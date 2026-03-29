@@ -8,6 +8,7 @@ import {
   generateGeminiText,
   type GeminiToolDefinition,
 } from "@/lib/ai/geminiClient";
+import type { ComparisonProduct } from "@/lib/products";
 import type { ChatMessageGrounding, GroundingToolName } from "@/types/api";
 import type { ChatMessage, Product } from "@/types/domain";
 
@@ -61,18 +62,22 @@ const chatResearchDecisionSchema = z.object({
 const CHAT_RESEARCH_DECISION_SYSTEM_INSTRUCTION = [
   "You decide whether a SaleSense chat reply needs external web research.",
   "Do not rely on hard-coded keywords.",
-  "Use the customer's intent, the transcript, and the active product context.",
+  "Use the customer's intent, the transcript, the active product context, and the same-store catalog boundary.",
   "Return no research for generic fit discovery, feature explanation, or tryout guidance when store-managed product data is enough.",
   "Use url-context when public source URLs for the active product would materially improve the answer.",
   "Use google-search when the customer intent requires public web discovery, such as competitor research, current owned-product comparisons, or freshness-sensitive facts.",
   "You may return both tools when the answer would benefit from both active-product URLs and public web discovery.",
+  "External research is only allowed when it helps position the active product or another same-store product more effectively.",
+  "Do not use external research to recommend products that are not in the same-store catalog.",
   "Return only valid JSON that matches the required schema.",
 ].join(" ");
 
 const CHAT_RESEARCH_SYSTEM_INSTRUCTION = [
   "You gather external facts for a SaleSense salesperson.",
   "Focus only on the customer's latest intent.",
-  "Summarize the most relevant facts that would help answer the customer and sell or compare the product accurately.",
+  "Summarize the most relevant facts that would help answer the customer and position the active product or another same-store product accurately.",
+  "Treat the provided same-store catalog as the only set of products that may be recommended in the final sales reply.",
+  "If outside products look stronger on the current comparison axis, summarize that only in ways that help the salesperson pivot to a stronger in-store angle.",
   "Do not write a final customer-facing reply.",
   "Keep the summary concise and factual.",
   "If information is uncertain or missing, say so plainly.",
@@ -92,6 +97,7 @@ export interface ExternalResearchResult {
 
 interface DetectChatResearchIntentInput {
   activeProduct: Product;
+  availableStoreProducts: ComparisonProduct[];
   history: ChatMessage[];
 }
 
@@ -120,6 +126,21 @@ function formatHistory(history: ChatMessage[]) {
     .join("\n");
 }
 
+function formatAvailableStoreProducts(products: ComparisonProduct[]) {
+  if (products.length === 0) {
+    return "- No additional same-store products are available.";
+  }
+
+  return products
+    .map((product) =>
+      [
+        `- ${product.brand} ${product.name} (${product.category})`,
+        `  Same-store comparison snippet: ${truncateText(product.comparisonSnippetMarkdown, 240)}`,
+      ].join("\n"),
+    )
+    .join("\n");
+}
+
 function buildChatResearchDecisionPrompt(input: DetectChatResearchIntentInput) {
   const recentHistory = getRecentHistory(input.history);
 
@@ -129,6 +150,10 @@ function buildChatResearchDecisionPrompt(input: DetectChatResearchIntentInput) {
     `Brand: ${input.activeProduct.brand}`,
     `Category: ${input.activeProduct.category}`,
     `Has source URLs: ${input.activeProduct.sourceUrls.length > 0 ? "yes" : "no"}`,
+    "",
+    "Other same-store products available for recommendation:",
+    formatAvailableStoreProducts(input.availableStoreProducts),
+    "",
     "Recent transcript:",
     formatHistory(recentHistory),
     "",
@@ -169,6 +194,7 @@ function buildToolConfig(tools: GroundingToolName[]): GeminiToolDefinition[] {
 
 function buildChatResearchPrompt(input: {
   activeProduct: Product;
+  availableStoreProducts: ComparisonProduct[];
   history: ChatMessage[];
   researchBrief: string;
   tools: GroundingToolName[];
@@ -194,6 +220,9 @@ function buildChatResearchPrompt(input: {
     "Product details markdown:",
     truncateText(input.activeProduct.detailsMarkdown, 4_000),
     "",
+    "Other same-store products available for recommendation:",
+    formatAvailableStoreProducts(input.availableStoreProducts),
+    "",
     ...urlSection,
     "Recent transcript:",
     formatHistory(recentHistory),
@@ -204,6 +233,7 @@ function buildChatResearchPrompt(input: {
 
 export async function gatherExternalResearch(input: {
   activeProduct: Product;
+  availableStoreProducts: ComparisonProduct[];
   history: ChatMessage[];
   researchBrief: string;
   tools: GroundingToolName[];

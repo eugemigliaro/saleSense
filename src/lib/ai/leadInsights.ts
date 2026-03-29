@@ -127,6 +127,37 @@ function formatComparisonProducts(products: ComparisonProduct[]) {
     .join("\n");
 }
 
+function normalizeProductLabel(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function resolveAllowedNextBestProduct(
+  value: string | null,
+  comparisonProducts: ComparisonProduct[],
+) {
+  if (!value) {
+    return null;
+  }
+
+  const normalizedValue = normalizeProductLabel(value);
+
+  for (const product of comparisonProducts) {
+    if (
+      [product.name, `${product.brand} ${product.name}`].some(
+        (candidateLabel) =>
+          normalizeProductLabel(candidateLabel) === normalizedValue,
+      )
+    ) {
+      return product.name;
+    }
+  }
+
+  return null;
+}
+
 const LEAD_INSIGHTS_SYSTEM_INSTRUCTION = [
   "You create concise lead notes for SaleSense store staff after a kiosk conversation.",
   "Use only the active product details and transcript as your sources of truth.",
@@ -226,7 +257,20 @@ export async function generateLeadInsights(
   const provider = options.provider ?? generateLeadInsightsWithGemini;
 
   try {
-    return await provider(leadInsightsInput);
+    const draft = await provider(leadInsightsInput);
+    const nextBestProduct = resolveAllowedNextBestProduct(
+      draft.nextBestProduct,
+      relevantComparisonProducts,
+    );
+
+    if (draft.nextBestProduct && !nextBestProduct) {
+      return buildFallbackLeadInsights(leadInsightsInput);
+    }
+
+    return {
+      ...draft,
+      nextBestProduct,
+    } satisfies LeadInsights;
   } catch (error) {
     console.error("Failed to generate Gemini lead insights. Falling back.", error);
 

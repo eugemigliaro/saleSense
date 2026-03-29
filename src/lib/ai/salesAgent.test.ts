@@ -83,12 +83,15 @@ describe("buildSalesAgentPrompt", () => {
     const prompt = buildSalesAgentPrompt({
       activeProduct: ACTIVE_PRODUCT,
       alternativeProducts: ALTERNATIVE_PRODUCTS,
+      availableStoreProducts: COMPARISON_PRODUCTS,
       externalResearchSummary: "Fresh market context says zoom flexibility matters here.",
       history: HISTORY,
     });
 
     expect(prompt).toContain("Primary details markdown");
     expect(prompt).toContain(ACTIVE_PRODUCT.detailsMarkdown);
+    expect(prompt).toContain("Same-store catalog boundary:");
+    expect(prompt).toContain("iPad Demo");
     expect(prompt).toContain("Relevant alternative in-store products:");
     expect(prompt).toContain("Samsung Galaxy Demo");
     expect(prompt).toContain(ALTERNATIVE_PRODUCTS[0].detailsMarkdown);
@@ -111,6 +114,7 @@ describe("buildFallbackSalesAgentReply", () => {
     const reply = buildFallbackSalesAgentReply({
       activeProduct: ACTIVE_PRODUCT,
       alternativeProducts: ALTERNATIVE_PRODUCTS,
+      availableStoreProducts: COMPARISON_PRODUCTS,
       externalResearchSummary: null,
       history: [
         {
@@ -148,5 +152,36 @@ describe("generateSalesAssistantReply", () => {
     expect(reply.draft.confidence).toBe("low");
     expect(reply.draft.message).toContain("iPhone Demo");
     expect(reply.grounding).toBeNull();
+  });
+
+  it("rejects out-of-store alternative recommendations from the provider", async () => {
+    const provider = vi
+      .fn<(input: SalesAgentInput) => Promise<SalesAgentDraft>>()
+      .mockResolvedValue({
+        confidence: "high",
+        language: "en",
+        message:
+          "You should skip this and go buy the Pixel Ultra instead because it fits you better.",
+        objective: "redirect",
+        recommendedAlternativeProductName: "Pixel Ultra",
+        suggestedTryout: null,
+      });
+
+    const reply = await generateSalesAssistantReply(
+      {
+        activeProduct: ACTIVE_PRODUCT,
+        history: HISTORY,
+        storeId: "store-1",
+      },
+      {
+        comparisonProducts: [],
+        provider,
+      },
+    );
+
+    expect(reply.draft.recommendedAlternativeProductName).toBeNull();
+    expect(reply.draft.objective).toBe("reframe");
+    expect(reply.draft.message).not.toContain("Pixel Ultra");
+    expect(reply.draft.message).toContain("store");
   });
 });

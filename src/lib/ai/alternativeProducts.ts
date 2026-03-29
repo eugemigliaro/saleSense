@@ -36,8 +36,11 @@ const alternativeSelectionSchema = z.object({
 
 const ALTERNATIVE_SELECTION_SYSTEM_INSTRUCTION = [
   "You decide whether SaleSense should bring other in-store products into context for the next reply.",
+  "Every product in the provided list belongs to the same store as the active product.",
+  "Your job is to help keep the sale inside that store.",
   "Use only the comparison snippets, transcript, and active product basics for this decision.",
   "Select alternatives only when they are genuinely relevant to the customer's needs or comparison intent.",
+  "If no same-store alternative gives the salesperson a stronger in-store path, return none and let the salesperson reframe the conversation instead.",
   "Do not select alternatives just because they are in the same category.",
   "Return only product ids from the provided list.",
   "Return only valid JSON that matches the required schema.",
