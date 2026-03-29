@@ -13,6 +13,7 @@ import {
   sendKioskChatMessage,
 } from "./kioskApi";
 import {
+  buildLeadCaptureConfirmationMessage,
   buildMockReply,
   buildPreviewGreeting,
   createMessage,
@@ -655,6 +656,13 @@ export function useKioskExperience({
         productId,
       });
       setInlineLeadCaptureEmail(normalizedEmail);
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        createMessage(
+          "assistant",
+          buildLeadCaptureConfirmationMessage(inlineLeadCaptureInstruction),
+        ),
+      ]);
       updateInlineLeadCaptureState("submitted");
     } catch (error) {
       setInlineLeadCaptureError(

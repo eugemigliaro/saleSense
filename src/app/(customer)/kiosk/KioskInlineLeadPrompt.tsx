@@ -15,32 +15,6 @@ interface KioskInlineLeadPromptProps {
   status: "prompted" | "submitted" | "idle" | "dismissed";
 }
 
-function getConfirmationMessage(instruction: LeadCaptureInstruction | null) {
-  if (!instruction) {
-    return "Thanks. I’ll use that email for the follow-up.";
-  }
-
-  if (instruction.language === "es") {
-    switch (instruction.benefit) {
-      case "conversation-summary":
-        return "Listo. Te voy a mandar el resumen a ese email.";
-      case "product-details":
-        return "Listo. Te mando la info del producto a ese email.";
-      default:
-        return "Listo. Voy a usar ese email para que un vendedor te haga el seguimiento.";
-    }
-  }
-
-  switch (instruction.benefit) {
-    case "conversation-summary":
-      return "Done. I’ll send the comparison summary to that inbox.";
-    case "product-details":
-      return "Done. I’ll send the product details to that inbox.";
-    default:
-      return "Done. I’ll use that email for the seller follow-up.";
-  }
-}
-
 export function KioskInlineLeadPrompt({
   email,
   error,
@@ -56,18 +30,7 @@ export function KioskInlineLeadPrompt({
   }
 
   if (status === "submitted") {
-    return (
-      <div className="flex justify-start">
-        <div className="mr-3 mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/8">
-          <Mail className="h-4.5 w-4.5 text-blue-300" />
-        </div>
-        <div className="max-w-[82%] rounded-3xl rounded-bl-xl border border-emerald-300/20 bg-emerald-300/10 px-4 py-4 text-white/90 backdrop-blur-md sm:max-w-[68%] sm:px-5">
-          <p className="ui-text-medium leading-7">
-            {getConfirmationMessage(instruction)}
-          </p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   if (!instruction) {

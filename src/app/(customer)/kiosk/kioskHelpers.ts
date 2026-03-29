@@ -31,3 +31,34 @@ export function createMessage(
     role,
   };
 }
+
+export function buildLeadCaptureConfirmationMessage(
+  instruction: {
+    benefit?: "conversation-summary" | "product-details" | "seller-follow-up";
+    language?: "en" | "es";
+  } | null,
+) {
+  if (!instruction) {
+    return "Thanks. I’ll use that email for the follow-up.";
+  }
+
+  if (instruction.language === "es") {
+    switch (instruction.benefit) {
+      case "conversation-summary":
+        return "Listo. Te voy a mandar el resumen a ese email.";
+      case "product-details":
+        return "Listo. Te mando la info del producto a ese email.";
+      default:
+        return "Listo. Voy a usar ese email para que un vendedor te haga el seguimiento.";
+    }
+  }
+
+  switch (instruction.benefit) {
+    case "conversation-summary":
+      return "Done. I’ll send the comparison summary to that inbox.";
+    case "product-details":
+      return "Done. I’ll send the product details to that inbox.";
+    default:
+      return "Done. I’ll use that email for the seller follow-up.";
+  }
+}
